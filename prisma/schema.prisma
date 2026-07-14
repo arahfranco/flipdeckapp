@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id      String  @id @default(cuid())
+  name    String
+  appName String  @default("Flipdeck")
+  tagline String?
+  email   String?
+  phone   String?
+  address String?
+  logoUrl String? // object storage URL (R2) — never base64
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+enum Role {
+  OWNER
+  PARTNER
+  PARTNER_LENDER
+  BOOKKEEPER
+}
+
+model User {
+  id        String  @id @default(cuid())
+  email     String  @unique
+  name      String
+  phone     String?
+  role      Role    @default(PARTNER)
+  partnerId String? @unique // links a login to a capital-ledger identity
+  partner   Partner? @relation(fields: [partnerId], references: [id])
+
+  emailVerified DateTime?
+  image         String?
+
+  accounts Account[]
+  sessions Session[]
+}
+
+model Partner {
+  id            String         @id @default(cuid())
+  name          String
+  user          User?
+  contributions Contribution[]
+}
+
+enum Status {
+  SCOUTING
+  UNDER_CONTRACT
+  IN_REHAB
+  LISTED
+  IN_ESCROW
+  SOLD
+}
+
+model Property {
+  id       String  @id @default(cuid())
+  address  String
+  mls      String?
+  type     String // Single Family, Condo, ...
+  beds     Float
+  baths    Float
+  sqft     Int
+  lotSize  Int
+  stories  Int
+  photoUrl String?
+  status   Status  @default(SCOUTING)
+
+  budget        BudgetLine[]
+  expenses      Expense[]
+  payroll       PayrollEntry[]
+  contributions Contribution[]
+  bankTxns      BankTxn[]
+}
+
+model BudgetLine {
+  id          String   @id @default(cuid())
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  category    String // one of the 5 categories
+  subcategory String
+  estimated   Decimal  @db.Decimal(12, 2)
+  actual      Decimal  @default(0) @db.Decimal(12, 2)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([propertyId, subcategory])
+}
+
+enum ExpenseStatus {
+  PENDING
+  PAID
+  REIMBURSED
+}
+
+model Expense {
+  id          String        @id @default(cuid())
+  date        DateTime      @db.Date
+  propertyId  String
+  property    Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  amount      Decimal       @db.Decimal(12, 2)
+  description String
+  subcategory String
+  status      ExpenseStatus @default(PENDING)
+  receiptUrl  String?
+  bankTxnId   String?       @unique // set when created by reconciling a bank txn
+  bankTxn     BankTxn?      @relation(fields: [bankTxnId], references: [id])
+}
+
+model BankTxn {
+  id          String   @id @default(cuid())
+  date        DateTime @db.Date
+  description String
+  amount      Decimal  @db.Decimal(12, 2) // always POSITIVE = money out
+  account     String
+  propertyId  String?
+  property    Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  subcategory String?
+  reconciled  Boolean  @default(false)
+  expense     Expense?
+  importHash  String   @unique // date|amount|normalized-description
+}
+
+model PayrollEntry {
+  id         String   @id @default(cuid())
+  date       DateTime @db.Date
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  worker     String
+  hours      Decimal  @db.Decimal(8, 2)
+  rate       Decimal  @db.Decimal(8, 2)
+  notes      String?
+  // total is COMPUTED (hours × rate) — never store it
+}
+
+enum ContribKind {
+  EQUITY
+  LOAN
+  DRAW
+}
+
+model Contribution {
+  id          String      @id @default(cuid())
+  date        DateTime    @db.Date
+  partnerId   String
+  partner     Partner     @relation(fields: [partnerId], references: [id])
+  propertyId  String
+  property    Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  kind        ContribKind
+  amount      Decimal     @db.Decimal(12, 2)
+  description String?
+}
