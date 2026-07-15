@@ -48,6 +48,9 @@ export function Nav({ companyName, appName, user }: NavProps) {
           <Link href="/settings" className={`fd-nav-item${pathname === "/settings" ? " on" : ""}`}>
             Company Settings
           </Link>
+          <Link href="/settings/users" className={`fd-nav-item${pathname === "/settings/users" ? " on" : ""}`}>
+            Users
+          </Link>
         </>
       )}
 
