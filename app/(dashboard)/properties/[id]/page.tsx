@@ -35,7 +35,7 @@ export default async function PropertyDetailPage({
     include: {
       budget: true,
       expenses: { orderBy: { date: "desc" } },
-      payroll: { orderBy: { date: "desc" } },
+      payroll: { include: { worker: true }, orderBy: { date: "desc" } },
       contributions: { include: { partner: true }, orderBy: { date: "desc" } },
     },
   });
@@ -265,7 +265,7 @@ export default async function PropertyDetailPage({
                 {property.payroll.map((p) => (
                   <tr key={p.id}>
                     <td>{p.date.toISOString().slice(0, 10)}</td>
-                    <td>{p.worker}</td>
+                    <td>{p.worker.name}</td>
                     <td className="num">{p.hours.toString()}</td>
                     <td className="num">{money2(p.rate)}</td>
                     <td className="num">{money2(p.hours.times(p.rate))}</td>

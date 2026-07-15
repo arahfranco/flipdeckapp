@@ -2,6 +2,8 @@ import { requireAccessPage } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { ALL_SUBS } from "@/lib/constants";
 import { BankRow } from "@/components/BankRow";
+import { AddBankTxnButton } from "@/components/AddBankTxnButton";
+import { ImportCsvButton } from "@/components/ImportCsvButton";
 
 export default async function BankPage() {
   await requireAccessPage("bank");
@@ -21,6 +23,10 @@ export default async function BankPage() {
           <div className="fd-eyebrow">Reconciliation</div>
           <h2>Bank Transactions</h2>
           <div className="fd-sub">Assign a property + subcategory and post to create an expense.</div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <AddBankTxnButton />
+          <ImportCsvButton />
         </div>
       </header>
 

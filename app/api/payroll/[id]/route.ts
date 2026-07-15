@@ -8,7 +8,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const body = await req.json();
   const data: Record<string, unknown> = {};
-  for (const key of ["worker", "hours", "rate", "notes"]) {
+  for (const key of ["workerId", "propertyId", "hours", "rate", "notes"]) {
     if (key in body) data[key] = body[key];
   }
   if (body.date) data.date = new Date(body.date);

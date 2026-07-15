@@ -160,12 +160,20 @@ model BankTxn {
   importHash  String   @unique // date|amount|normalized-description
 }
 
+model Worker {
+  id          String         @id @default(cuid())
+  name        String         @unique
+  defaultRate Decimal?       @db.Decimal(8, 2)
+  payroll     PayrollEntry[]
+}
+
 model PayrollEntry {
   id         String   @id @default(cuid())
   date       DateTime @db.Date
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  worker     String
+  workerId   String
+  worker     Worker   @relation(fields: [workerId], references: [id])
   hours      Decimal  @db.Decimal(8, 2)
   rate       Decimal  @db.Decimal(8, 2)
   notes      String?

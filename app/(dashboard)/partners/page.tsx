@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { money2 } from "@/lib/format";
 import { Prisma } from "@prisma/client";
 import { AddContributionButton } from "@/components/AddContributionButton";
+import { ContributionRow } from "@/components/ContributionRow";
 
 export default async function PartnersPage() {
   await requireAccessPage("partners");
@@ -52,12 +53,13 @@ export default async function PartnersPage() {
                 <th>Kind</th>
                 <th>Description</th>
                 <th className="num">Amount</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {partners.flatMap((p) => p.contributions).length === 0 && (
                 <tr>
-                  <td colSpan={6} className="empty">
+                  <td colSpan={7} className="empty">
                     No contributions logged yet.
                   </td>
                 </tr>
@@ -66,19 +68,22 @@ export default async function PartnersPage() {
                 .flatMap((p) => p.contributions.map((c) => ({ ...c, partnerName: p.name })))
                 .sort((a, b) => b.date.getTime() - a.date.getTime())
                 .map((c) => (
-                  <tr key={c.id}>
-                    <td>{c.date.toISOString().slice(0, 10)}</td>
-                    <td>{c.partnerName}</td>
-                    <td>{c.property.address}</td>
-                    <td>
-                      <span className={`pill p-${c.kind.toLowerCase()}`}>{c.kind}</span>
-                    </td>
-                    <td>{c.description}</td>
-                    <td className={`num ${c.kind === "DRAW" ? "neg" : ""}`}>
-                      {c.kind === "DRAW" ? "−" : ""}
-                      {money2(c.amount)}
-                    </td>
-                  </tr>
+                  <ContributionRow
+                    key={c.id}
+                    contribution={{
+                      id: c.id,
+                      date: c.date.toISOString().slice(0, 10),
+                      partnerId: c.partnerId,
+                      partnerName: c.partnerName,
+                      propertyId: c.propertyId,
+                      propertyAddress: c.property.address,
+                      kind: c.kind,
+                      description: c.description,
+                      amount: c.amount.toString(),
+                    }}
+                    partners={partners.map((p) => ({ id: p.id, name: p.name }))}
+                    properties={properties}
+                  />
                 ))}
             </tbody>
           </table>

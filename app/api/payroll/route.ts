@@ -7,13 +7,13 @@ export async function POST(req: Request) {
   if ("error" in guard) return guard.error;
 
   const body = await req.json();
-  const { propertyId, date, worker, hours, rate, notes } = body;
-  if (!propertyId || !date || !worker || hours == null || rate == null) {
+  const { propertyId, date, workerId, hours, rate, notes } = body;
+  if (!propertyId || !date || !workerId || hours == null || rate == null) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
   const entry = await db.payrollEntry.create({
-    data: { propertyId, date: new Date(date), worker, hours, rate, notes: notes || null },
+    data: { propertyId, date: new Date(date), workerId, hours, rate, notes: notes || null },
   });
   return NextResponse.json(entry, { status: 201 });
 }

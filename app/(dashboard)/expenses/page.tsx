@@ -1,8 +1,7 @@
 import { requireAccessPage } from "@/lib/authz";
 import { db } from "@/lib/db";
-import { money2 } from "@/lib/format";
-import { EXPENSE_STATUS_LABELS } from "@/lib/constants";
 import { AddExpenseButton } from "@/components/AddExpenseButton";
+import { ExpenseRow } from "@/components/ExpenseRow";
 
 export default async function ExpensesPage() {
   await requireAccessPage("expenses");
@@ -34,27 +33,32 @@ export default async function ExpensesPage() {
                 <th>Subcategory</th>
                 <th>Status</th>
                 <th className="num">Amount</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {expenses.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="empty">
+                  <td colSpan={7} className="empty">
                     No expenses logged yet.
                   </td>
                 </tr>
               )}
               {expenses.map((e) => (
-                <tr key={e.id}>
-                  <td>{e.date.toISOString().slice(0, 10)}</td>
-                  <td>{e.property.address}</td>
-                  <td>{e.description}</td>
-                  <td>{e.subcategory}</td>
-                  <td>
-                    <span className={`pill p-${e.status.toLowerCase()}`}>{EXPENSE_STATUS_LABELS[e.status]}</span>
-                  </td>
-                  <td className="num">{money2(e.amount)}</td>
-                </tr>
+                <ExpenseRow
+                  key={e.id}
+                  expense={{
+                    id: e.id,
+                    date: e.date.toISOString().slice(0, 10),
+                    propertyId: e.propertyId,
+                    propertyAddress: e.property.address,
+                    description: e.description,
+                    subcategory: e.subcategory,
+                    status: e.status,
+                    amount: e.amount.toString(),
+                  }}
+                  properties={properties}
+                />
               ))}
             </tbody>
           </table>

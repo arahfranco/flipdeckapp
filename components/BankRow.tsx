@@ -24,6 +24,11 @@ export function BankRow({ txn, properties, subcategories }: BankRowProps) {
   const router = useRouter();
   const [propertyId, setPropertyId] = useState(txn.propertyId ?? "");
   const [subcategory, setSubcategory] = useState(txn.subcategory ?? "");
+  const [editing, setEditing] = useState(false);
+  const [date, setDate] = useState(txn.date);
+  const [description, setDescription] = useState(txn.description);
+  const [account, setAccount] = useState(txn.account);
+  const [amount, setAmount] = useState(txn.amount);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -50,6 +55,25 @@ export function BankRow({ txn, properties, subcategories }: BankRowProps) {
     }
   }
 
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/bank/${txn.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date, description, account, amount: Number(amount) }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Could not save");
+      setEditing(false);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function remove() {
     setBusy(true);
     setError(null);
@@ -62,6 +86,45 @@ export function BankRow({ txn, properties, subcategories }: BankRowProps) {
       setError(e instanceof Error ? e.message : "Something went wrong");
       setBusy(false);
     }
+  }
+
+  if (editing) {
+    return (
+      <tr className="recon-row">
+        <td>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ minWidth: 130 }} />
+        </td>
+        <td>
+          <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} />
+        </td>
+        <td>
+          <input type="text" value={account} onChange={(e) => setAccount(e.target.value)} style={{ minWidth: 100 }} />
+        </td>
+        <td colSpan={2} className="hint">
+          Property/subcategory assignment available after saving
+        </td>
+        <td className="num">
+          <input
+            type="number"
+            step="0.01"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            style={{ width: 90, textAlign: "right" }}
+          />
+        </td>
+        <td>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button className="fd-btn sm" onClick={save} disabled={busy}>
+              {busy ? "…" : "Save"}
+            </button>
+            <button className="fd-btn ghost sm" onClick={() => setEditing(false)} disabled={busy}>
+              Cancel
+            </button>
+          </div>
+          {error && <div className="err">{error}</div>}
+        </td>
+      </tr>
+    );
   }
 
   return (
@@ -101,9 +164,14 @@ export function BankRow({ txn, properties, subcategories }: BankRowProps) {
       <td>
         <div style={{ display: "flex", gap: 6 }}>
           {!txn.reconciled && (
-            <button className="fd-btn sm" onClick={post} disabled={busy}>
-              Post
-            </button>
+            <>
+              <button className="fd-btn sm" onClick={post} disabled={busy}>
+                Post
+              </button>
+              <button className="fd-btn ghost sm" onClick={() => setEditing(true)} disabled={busy}>
+                Edit
+              </button>
+            </>
           )}
           <button className="fd-btn ghost sm" onClick={() => setConfirming(true)} disabled={busy}>
             Delete

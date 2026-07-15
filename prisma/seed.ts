@@ -1,4 +1,5 @@
 import { PrismaClient, Role, Status, ExpenseStatus, ContribKind } from "@prisma/client";
+import { importHash } from "../lib/csvImport";
 
 const prisma = new PrismaClient();
 
@@ -31,11 +32,6 @@ const line = (propertyId: string, sub: string, estimated: number, actual = 0) =>
   estimated,
   actual,
 });
-
-function importHash(date: string, amount: number, description: string) {
-  const normalized = description.trim().toLowerCase().replace(/\s+/g, " ");
-  return `${date}|${amount.toFixed(2)}|${normalized}`;
-}
 
 async function main() {
   const company = {
@@ -221,6 +217,13 @@ async function main() {
     });
   }
 
+  const workerNames = ["Miguel Torres", "Danny Reyes", "Sam Oduya", "Lena Ruiz"];
+  const workerIds: Record<string, string> = {};
+  for (const name of workerNames) {
+    const w = await prisma.worker.upsert({ where: { name }, update: {}, create: { name } });
+    workerIds[name] = w.id;
+  }
+
   const payroll = [
     { date: "2026-07-05", propertyId: "p1", worker: "Miguel Torres", hours: 48, rate: 60, notes: "Framing crew lead, week 1" },
     { date: "2026-07-05", propertyId: "p1", worker: "Danny Reyes", hours: 44, rate: 45, notes: "Framing + demo haul" },
@@ -231,7 +234,8 @@ async function main() {
     { date: "2026-06-21", propertyId: "p2", worker: "Lena Ruiz", hours: 32, rate: 52, notes: "Tile setter, both baths" },
   ];
   for (const p of payroll) {
-    await prisma.payrollEntry.create({ data: { ...p, date: new Date(p.date) } });
+    const { worker, ...rest } = p;
+    await prisma.payrollEntry.create({ data: { ...rest, workerId: workerIds[worker], date: new Date(p.date) } });
   }
 
   const contributions = [
