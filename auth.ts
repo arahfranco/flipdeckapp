@@ -26,6 +26,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // EMAIL_SERVER_HOST is set this branch never runs; real mail goes out
       // through nodemailer exactly as NextAuth's Email provider normally does.
       async sendVerificationRequest({ identifier, url }) {
+        // Invite-only: this is an internal tool holding partner capital and
+        // payroll, not a self-serve product — only emails an Owner has
+        // already created a User row for may sign in. Checking here (rather
+        // than in a signIn callback) matters because the Email provider's
+        // built-in flow calls adapter.createUser() for an unknown address
+        // BEFORE any signIn callback would run, and User.name is required —
+        // that mismatch is what crashed with "Argument `name` is missing."
+        // We also don't distinguish this case in the UI (still shows the
+        // generic "check your email" page) to avoid leaking which emails
+        // have accounts.
+        const existing = await db.user.findUnique({ where: { email: identifier } });
+        if (!existing) {
+          console.warn(`[auth] Sign-in attempted for unregistered email: ${identifier}`);
+          return;
+        }
+
         if (!smtpConfigured) {
           console.log(`\n[dev] Sign-in link for ${identifier}:\n${url}\n`);
           return;
