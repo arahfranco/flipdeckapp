@@ -74,14 +74,20 @@ export function computeProperty(
 
   const rows: RolledLine[] = budget.map((l) => {
     const override = expActual.get(l.subcategory);
+    // "Selling Price" (the Sale Price line) is revenue, not a cost — it has
+    // no expense-log equivalent, so it's the one line whose stored `actual`
+    // is meaningful and kept: that's literally how a property gets marked
+    // sold (spec §2's profit-basis switch depends on it). Every cost-category
+    // line is purely expense-derived — $0 until a real expense exists, never
+    // falling back to a stored value (which can go stale, e.g. after a
+    // property is repurposed and its old actuals no longer apply).
+    const actual =
+      override != null ? override : l.category === "Selling Price" ? l.actual : new Decimal(0);
     return {
       id: l.id,
       category: l.category as Category,
       subcategory: l.subcategory,
-      // Rehab actuals are DERIVED from the expenses log when a log entry exists.
-      // Falls back to the budget line's stored actual only when no expense exists —
-      // never summed together, that double-counts.
-      actual: override != null ? override : l.actual,
+      actual,
       estimated: l.estimated,
       overridden: override != null,
     };

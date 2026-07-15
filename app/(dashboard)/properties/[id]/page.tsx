@@ -190,6 +190,7 @@ export default async function PropertyDetailPage({
                         key={row.id}
                         id={row.id}
                         subcategory={row.subcategory}
+                        category={cat}
                         estimated={row.estimated.toString()}
                         actual={row.actual.toString()}
                         derived={row.derived}

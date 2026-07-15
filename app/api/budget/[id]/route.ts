@@ -11,10 +11,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const body = await req.json();
   const data: Record<string, unknown> = {};
-  // "actual" is deliberately NOT editable here — it's a pure derived value
-  // (the expense-log sum for this subcategory, spec §2 rule 2). Only
-  // "estimated" is ever user-entered.
   if ("estimated" in body) data.estimated = body.estimated;
+  // "actual" is only meaningful to set directly on the Sale Price line —
+  // every cost-category line is purely expense-derived (lib/calc.ts ignores
+  // this field for anything but "Selling Price"), so allowing it here for
+  // cost lines would just silently do nothing.
+  if ("actual" in body && existing.category === "Selling Price") data.actual = body.actual;
 
   const line = await db.budgetLine.update({ where: { id: params.id }, data });
   return NextResponse.json(line);

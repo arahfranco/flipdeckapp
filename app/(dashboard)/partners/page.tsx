@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireAccessPage } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { money2 } from "@/lib/format";
@@ -21,7 +22,12 @@ export default async function PartnersPage() {
           <h2>Partner Contributions</h2>
           <div className="fd-sub">Net capital = Equity + Loan − Draw. Draws are negative in every rollup.</div>
         </div>
-        <AddContributionButton partners={partners} properties={properties} />
+        <div style={{ display: "flex", gap: 8 }}>
+          <Link href="/partners/manage" className="fd-btn ghost sm">
+            Manage Partners
+          </Link>
+          <AddContributionButton partners={partners} properties={properties} />
+        </div>
       </header>
 
       <div className="fd-grid" style={{ gridTemplateColumns: `repeat(${partners.length || 1}, 1fr)`, marginBottom: 22 }}>
