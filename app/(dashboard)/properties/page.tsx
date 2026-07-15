@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { computeProperty } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { STATUS_LABELS, STATUS_TONE } from "@/lib/constants";
+import { AddPropertyButton } from "@/components/AddPropertyButton";
 
 export default async function PropertiesPage() {
   await requireAccessPage("properties");
@@ -20,6 +21,7 @@ export default async function PropertiesPage() {
           <div className="fd-eyebrow">Properties</div>
           <h2>All Properties</h2>
         </div>
+        <AddPropertyButton />
       </header>
 
       {properties.length === 0 ? (
