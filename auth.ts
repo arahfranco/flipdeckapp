@@ -42,22 +42,43 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return;
         }
 
+        const from = process.env.EMAIL_FROM ?? "Flipdeck <onboarding@resend.dev>";
+        const subject = "Sign in to Flipdeck";
+        const text = `Sign in to Flipdeck:\n${url}\n`;
+        const html = `<p>Click to sign in to Flipdeck:</p><p><a href="${url}">Sign in</a></p><p>Or paste this link into your browser:</p><p>${url}</p>`;
+        const apiKey = process.env.EMAIL_SERVER_PASSWORD ?? "";
+
+        // Resend: send over their HTTPS API, NOT SMTP. nodemailer SMTP is
+        // unreliable on Vercel's serverless functions — the outbound
+        // connection times out / is blocked, which surfaces as NextAuth's
+        // "Server error / problem with the server configuration" page. A
+        // plain fetch over HTTPS avoids that entirely (Resend's own
+        // recommendation for serverless).
+        if (apiKey.startsWith("re_")) {
+          const res = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ from, to: identifier, subject, html, text }),
+          });
+          if (!res.ok) {
+            throw new Error(`Resend API ${res.status}: ${await res.text()}`);
+          }
+          return;
+        }
+
+        // No provider configured (local dev) — print the link to the console.
         if (!smtpConfigured) {
           console.log(`\n[dev] Sign-in link for ${identifier}:\n${url}\n`);
           return;
         }
+
+        // Generic SMTP (nodemailer) for any non-Resend provider.
         const transport = nodemailer.createTransport({
           host: process.env.EMAIL_SERVER_HOST,
           port: Number(process.env.EMAIL_SERVER_PORT ?? 587),
           auth: { user: process.env.EMAIL_SERVER_USER, pass: process.env.EMAIL_SERVER_PASSWORD },
         });
-        await transport.sendMail({
-          to: identifier,
-          from: process.env.EMAIL_FROM,
-          subject: "Sign in to Flipdeck",
-          text: `Sign in to Flipdeck: ${url}`,
-          html: `<p><a href="${url}">Sign in to Flipdeck</a></p>`,
-        });
+        await transport.sendMail({ to: identifier, from, subject, text, html });
       },
     }),
   ],
