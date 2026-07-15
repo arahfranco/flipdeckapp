@@ -16,7 +16,10 @@
 .fd *{box-sizing:border-box;}
 .fd h1,.fd h2,.fd h3{font-family:'Bitter',Georgia,serif;margin:0;letter-spacing:-.01em;}
 .fd .mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;}
-.fd button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+/* Same :where() reasoning as the link-color reset below — a plain ".fd button"
+   rule out-specificities single-class rules (.fd-btn, .linkish, ...) and
+   silently breaks their color whenever they're a real <button> element. */
+:where(.fd) button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
 .fd input,.fd select,.fd textarea{font-family:inherit;font-size:13px;color:var(--ink);
   background:var(--card);border:1px solid var(--rule);border-radius:2px;padding:8px 10px;width:100%;}
 .fd input:focus,.fd select:focus,.fd textarea:focus{outline:2px solid var(--green);outline-offset:-1px;border-color:var(--green);}
