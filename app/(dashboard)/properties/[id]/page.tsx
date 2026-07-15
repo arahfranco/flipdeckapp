@@ -51,6 +51,13 @@ export default async function PropertyDetailPage({
 
   return (
     <>
+      {property.photoUrl && (
+        <img
+          src={property.photoUrl}
+          alt={property.address}
+          style={{ width: "100%", maxHeight: 280, objectFit: "cover", borderRadius: 3, marginBottom: 18 }}
+        />
+      )}
       <header className="fd-head">
         <div>
           <div className="fd-eyebrow">
