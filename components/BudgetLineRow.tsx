@@ -14,19 +14,22 @@ interface Props {
   actualIsOverridden: boolean;
 }
 
-// "Actual" is a pure derived value for every cost line — the expense-log sum
+// "Actual" is a pure derived value for most cost lines — the expense-log sum
 // for that subcategory, or $0 if nothing's been logged (spec §2, rule 2).
-// The one exception is the Sale Price line: it's revenue, not a cost, so it
-// has no expense-log equivalent — its stored value is how a property gets
-// marked "sold" at all (the profit-basis switch depends on it), so it stays
-// directly editable.
+// Purchase Costs and Selling Price are the exceptions: one-time,
+// entered-once figures from a closing/escrow transaction rather than
+// something tracked line-by-line through the expenses log, so their stored
+// value stays directly editable — unless a real expense-log entry already
+// exists for that subcategory, in which case that always wins.
+const DIRECT_ENTRY_CATEGORIES = ["Purchase Costs", "Selling Price"];
+
 export function BudgetLineRow({ id, subcategory, category, estimated, actual, derived, actualIsOverridden }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [estValue, setEstValue] = useState(estimated);
   const [actValue, setActValue] = useState(actual);
   const [busy, setBusy] = useState(false);
-  const actualEditable = category === "Selling Price";
+  const actualEditable = DIRECT_ENTRY_CATEGORIES.includes(category) && !actualIsOverridden;
 
   async function save() {
     setBusy(true);

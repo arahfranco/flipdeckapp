@@ -52,7 +52,7 @@ describe("computeProperty — rollup precedence (spec §2, rule 2)", () => {
     expect(row.actual.toNumber()).toBe(0);
   });
 
-  it("Sale Price is the one exception: its stored actual is used directly (no expense-log equivalent for revenue)", () => {
+  it("Sale Price is a direct-entry exception: its stored actual is used directly (no expense-log equivalent for revenue)", () => {
     const budget = [
       budgetLine({ subcategory: "Sale Price", category: "Selling Price", estimated: D(700000), actual: D(680000) }),
     ];
@@ -60,6 +60,27 @@ describe("computeProperty — rollup precedence (spec §2, rule 2)", () => {
     const result = computeProperty(budget, [], []);
     const row = result.byCat["Selling Price"].rows.find((r) => r.subcategory === "Sale Price")!;
     expect(row.actual.toNumber()).toBe(680000);
+  });
+
+  it("Purchase Costs is also a direct-entry exception: a one-time closing figure, not expense-log tracked", () => {
+    const budget = [
+      budgetLine({ subcategory: "Purchase Price", category: "Purchase Costs", estimated: D(985000), actual: D(985000) }),
+    ];
+
+    const result = computeProperty(budget, [], []);
+    const row = result.byCat["Purchase Costs"].rows.find((r) => r.subcategory === "Purchase Price")!;
+    expect(row.actual.toNumber()).toBe(985000);
+  });
+
+  it("an expense-log entry still overrides Purchase Costs' direct-entry actual when one exists", () => {
+    const budget = [
+      budgetLine({ subcategory: "Inspection", category: "Purchase Costs", estimated: D(1200), actual: D(999999) }),
+    ];
+    const expenses: ExpenseInput[] = [{ subcategory: "Inspection", amount: D(1450) }];
+
+    const result = computeProperty(budget, expenses, []);
+    const row = result.byCat["Purchase Costs"].rows.find((r) => r.subcategory === "Inspection")!;
+    expect(row.actual.toNumber()).toBe(1450);
   });
 });
 

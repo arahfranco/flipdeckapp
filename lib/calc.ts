@@ -72,17 +72,21 @@ export function computeProperty(
   }
   const laborActual = payroll.reduce((sum, p) => sum.plus(p.hours.times(p.rate)), new Decimal(0));
 
+  // "Purchase Costs" (Purchase Price, Closing Costs, Title & Escrow, Inspection,
+  // Appraisal, Transfer Tax) and "Selling Price" (Sale Price) are both
+  // one-time, entered-once figures — a closing/escrow transaction, not
+  // something tracked line-by-line through the expenses log the way ongoing
+  // rehab spending is. Their stored `actual` is meaningful and kept.
+  // Every other cost category is purely expense-derived — $0 until a real
+  // expense exists, never falling back to a stored value (which can go
+  // stale, e.g. after a property is repurposed and its old actuals no
+  // longer apply).
+  const DIRECT_ENTRY_CATEGORIES: Category[] = ["Purchase Costs", "Selling Price"];
+
   const rows: RolledLine[] = budget.map((l) => {
     const override = expActual.get(l.subcategory);
-    // "Selling Price" (the Sale Price line) is revenue, not a cost — it has
-    // no expense-log equivalent, so it's the one line whose stored `actual`
-    // is meaningful and kept: that's literally how a property gets marked
-    // sold (spec §2's profit-basis switch depends on it). Every cost-category
-    // line is purely expense-derived — $0 until a real expense exists, never
-    // falling back to a stored value (which can go stale, e.g. after a
-    // property is repurposed and its old actuals no longer apply).
     const actual =
-      override != null ? override : l.category === "Selling Price" ? l.actual : new Decimal(0);
+      override != null ? override : DIRECT_ENTRY_CATEGORIES.includes(l.category as Category) ? l.actual : new Decimal(0);
     return {
       id: l.id,
       category: l.category as Category,

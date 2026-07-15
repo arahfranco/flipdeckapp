@@ -12,11 +12,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const body = await req.json();
   const data: Record<string, unknown> = {};
   if ("estimated" in body) data.estimated = body.estimated;
-  // "actual" is only meaningful to set directly on the Sale Price line —
-  // every cost-category line is purely expense-derived (lib/calc.ts ignores
-  // this field for anything but "Selling Price"), so allowing it here for
-  // cost lines would just silently do nothing.
-  if ("actual" in body && existing.category === "Selling Price") data.actual = body.actual;
+  // "actual" is only meaningful to set directly on Purchase Costs and
+  // Selling Price lines — every other cost category is purely expense-derived
+  // (lib/calc.ts ignores this field for anything else), so allowing it here
+  // for those would just silently do nothing.
+  const DIRECT_ENTRY_CATEGORIES = ["Purchase Costs", "Selling Price"];
+  if ("actual" in body && DIRECT_ENTRY_CATEGORIES.includes(existing.category)) data.actual = body.actual;
 
   const line = await db.budgetLine.update({ where: { id: params.id }, data });
   return NextResponse.json(line);
