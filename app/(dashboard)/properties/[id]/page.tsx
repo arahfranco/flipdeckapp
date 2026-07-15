@@ -7,6 +7,7 @@ import { computeProperty } from "@/lib/calc";
 import { money, money2, pct } from "@/lib/format";
 import { CAN_SEE, CATEGORIES, COST_CATEGORIES, STATUS_LABELS, STATUS_TONE, EXPENSE_STATUS_LABELS } from "@/lib/constants";
 import { DeletePropertyButton } from "@/components/DeletePropertyButton";
+import { EditPropertyButton } from "@/components/EditPropertyButton";
 import { BudgetLineRow } from "@/components/BudgetLineRow";
 
 type Tab = "dashboard" | "budget" | "expenses" | "payroll" | "capital";
@@ -63,7 +64,24 @@ export default async function PropertyDetailPage({
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-end" }}>
           <span className={`pill ${STATUS_TONE[property.status]}`}>{STATUS_LABELS[property.status]}</span>
-          <DeletePropertyButton propertyId={property.id} address={property.address} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <EditPropertyButton
+              property={{
+                id: property.id,
+                address: property.address,
+                mls: property.mls,
+                type: property.type,
+                beds: property.beds,
+                baths: property.baths,
+                sqft: property.sqft,
+                lotSize: property.lotSize,
+                stories: property.stories,
+                status: property.status,
+                photoUrl: property.photoUrl,
+              }}
+            />
+            <DeletePropertyButton propertyId={property.id} address={property.address} />
+          </div>
         </div>
       </header>
 

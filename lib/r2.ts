@@ -20,7 +20,7 @@ const ALLOWED_CONTENT_TYPES = new Set(["image/jpeg", "image/png", "image/webp", 
  * never sees the file bytes. Object key is server-generated (never trusts a
  * client-supplied path) to avoid path traversal / overwrite of unrelated keys.
  */
-export async function createUploadUrl(kind: "receipts" | "logos", contentType: string) {
+export async function createUploadUrl(kind: "receipts" | "logos" | "properties", contentType: string) {
   if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
     throw new Error("Unsupported file type");
   }

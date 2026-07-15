@@ -21,7 +21,11 @@
   background:var(--card);border:1px solid var(--rule);border-radius:2px;padding:8px 10px;width:100%;}
 .fd input:focus,.fd select:focus,.fd textarea:focus{outline:2px solid var(--green);outline-offset:-1px;border-color:var(--green);}
 .fd :focus-visible{outline:2px solid var(--green);outline-offset:2px;}
-.fd a { color: inherit; text-decoration: none; }
+/* :where() keeps this at zero specificity so any component class (.fd-btn,
+   .fd-nav-item, .linkish, ...) always wins its own color — a plain ".fd a"
+   rule here would out-specificity single-class rules and silently break
+   button/nav text color whenever they're rendered as <Link> (an <a> tag). */
+:where(.fd) a { color: inherit; text-decoration: none; }
 
 /* shell */
 .fd-shell{display:grid;grid-template-columns:216px 1fr;min-height:100vh;}

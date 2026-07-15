@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 interface Props {
-  kind: "receipt" | "logo";
+  kind: "receipt" | "logo" | "property-photo";
   value?: string | null;
   onUploaded: (publicUrl: string) => void;
   label?: string;
