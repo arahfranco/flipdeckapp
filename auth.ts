@@ -4,7 +4,14 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import nodemailer from "nodemailer";
 import { db } from "./lib/db";
 
-const smtpConfigured = Boolean(process.env.EMAIL_SERVER_HOST);
+// Env values pasted into a hosting dashboard sometimes keep the surrounding
+// quotes from a .env line (the quirk that broke DATABASE_URL on Vercel).
+// Strip them so a quoted "re_…" key still matches the Resend check below
+// instead of silently falling through to the SMTP path (which fails on
+// serverless). Defensive — harmless when there are no quotes.
+const env = (name: string) => (process.env[name] ?? "").replace(/^\s*["']|["']\s*$/g, "").trim();
+
+const smtpConfigured = Boolean(env("EMAIL_SERVER_HOST"));
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(db),
@@ -42,19 +49,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return;
         }
 
-        const from = process.env.EMAIL_FROM ?? "Flipdeck <onboarding@resend.dev>";
+        const from = env("EMAIL_FROM") || "Flipdeck <onboarding@resend.dev>";
         const subject = "Sign in to Flipdeck";
         const text = `Sign in to Flipdeck:\n${url}\n`;
         const html = `<p>Click to sign in to Flipdeck:</p><p><a href="${url}">Sign in</a></p><p>Or paste this link into your browser:</p><p>${url}</p>`;
-        const apiKey = process.env.EMAIL_SERVER_PASSWORD ?? "";
+        const apiKey = env("EMAIL_SERVER_PASSWORD");
+        const host = env("EMAIL_SERVER_HOST");
 
         // Resend: send over their HTTPS API, NOT SMTP. nodemailer SMTP is
         // unreliable on Vercel's serverless functions — the outbound
         // connection times out / is blocked, which surfaces as NextAuth's
         // "Server error / problem with the server configuration" page. A
         // plain fetch over HTTPS avoids that entirely (Resend's own
-        // recommendation for serverless).
-        if (apiKey.startsWith("re_")) {
+        // recommendation for serverless). Detect Resend by the key prefix or
+        // the SMTP host, so a Resend setup always takes this path.
+        if (apiKey.startsWith("re_") || host.includes("resend")) {
           const res = await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -74,9 +83,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // Generic SMTP (nodemailer) for any non-Resend provider.
         const transport = nodemailer.createTransport({
-          host: process.env.EMAIL_SERVER_HOST,
-          port: Number(process.env.EMAIL_SERVER_PORT ?? 587),
-          auth: { user: process.env.EMAIL_SERVER_USER, pass: process.env.EMAIL_SERVER_PASSWORD },
+          host,
+          port: Number(env("EMAIL_SERVER_PORT") || 587),
+          auth: { user: env("EMAIL_SERVER_USER"), pass: apiKey },
         });
         await transport.sendMail({ to: identifier, from, subject, text, html });
       },
