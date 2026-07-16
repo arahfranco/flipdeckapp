@@ -19,15 +19,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: { signIn: "/login" },
   providers: [
     Email({
+      // These MUST be quote-stripped and NaN-safe. A quoted "587" in the
+      // hosting dashboard makes Number('"587"') → NaN, which is an invalid
+      // provider config — NextAuth then throws a Configuration error and
+      // EVERY /api/auth/* route 500s ("problem with the server
+      // configuration"), not just the send. The `|| fallback` guards that.
       server: {
-        host: process.env.EMAIL_SERVER_HOST,
-        port: Number(process.env.EMAIL_SERVER_PORT ?? 587),
+        host: env("EMAIL_SERVER_HOST") || "smtp.resend.com",
+        port: Number(env("EMAIL_SERVER_PORT")) || 587,
         auth: {
-          user: process.env.EMAIL_SERVER_USER,
-          pass: process.env.EMAIL_SERVER_PASSWORD,
+          user: env("EMAIL_SERVER_USER") || "resend",
+          pass: env("EMAIL_SERVER_PASSWORD"),
         },
       },
-      from: process.env.EMAIL_FROM,
+      from: env("EMAIL_FROM") || "Flipdeck <onboarding@resend.dev>",
       // No SMTP configured yet (see .env) — print the magic link to the
       // server console instead of failing with ECONNREFUSED. Once
       // EMAIL_SERVER_HOST is set this branch never runs; real mail goes out
