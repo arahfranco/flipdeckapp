@@ -1,4 +1,4 @@
-import { signIn } from "@/auth";
+import { signIn, auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 
@@ -7,6 +7,12 @@ export default async function LoginPage({
 }: {
   searchParams: { error?: string; sent?: string };
 }) {
+  // Clicking the magic link creates the session, then NextAuth redirects
+  // back here. Without this check the sign-in form just re-renders and it
+  // looks like sign-in failed — even though the user IS authenticated.
+  const session = await auth();
+  if (session?.user) redirect("/");
+
   const company = await db.company.findFirst();
   const appName = company?.appName ?? "Flipdeck";
   const subtitle = `${company?.name ?? "Foundational Real Estate"}${company?.tagline ? ` — ${company.tagline}` : ""}`;
@@ -48,8 +54,10 @@ export default async function LoginPage({
             let ok = true;
             try {
               // redirect:false so signIn sends the email and returns instead of
-              // throwing its own redirect — lets us control where the user lands.
-              await signIn("email", { email, redirect: false });
+              // throwing its own redirect — lets us control where the user lands
+              // right now. redirectTo is a different thing: it's the callbackUrl
+              // baked into the emailed link, i.e. where they land AFTER clicking.
+              await signIn("email", { email, redirectTo: "/", redirect: false });
             } catch {
               ok = false;
             }
