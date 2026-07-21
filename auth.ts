@@ -17,6 +17,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(db),
   session: { strategy: "database" },
   pages: { signIn: "/login" },
+  // NextAuth v5 reads AUTH_SECRET by default; this deployment supplies
+  // NEXTAUTH_SECRET. Without a secret it throws a Configuration error and
+  // EVERY /api/auth/* route 500s. Accept either name (quote-stripped).
+  secret: env("AUTH_SECRET") || env("NEXTAUTH_SECRET"),
+  // Required behind Vercel's proxy so the host/callback URLs are trusted.
+  trustHost: true,
   providers: [
     Email({
       // These MUST be quote-stripped and NaN-safe. A quoted "587" in the
