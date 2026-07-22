@@ -9,6 +9,7 @@ import { AddBankAccountButton } from "@/components/AddBankAccountButton";
 import { LiabilityRow } from "@/components/LiabilityRow";
 import { AddLiabilityButton } from "@/components/AddLiabilityButton";
 import { RentCell } from "@/components/RentCell";
+import { BalanceSheetChart } from "@/components/charts/BalanceSheetChart";
 
 export default async function CompanyValuePage() {
   // Gated on "partners", not "portfolio" — this exposes equity positions,
@@ -80,6 +81,19 @@ export default async function CompanyValuePage() {
               ? "No properties marked Rented"
               : `${money(nw.annualRent)} annualized · ${nw.rentedCount} rented`}
           </div>
+        </div>
+      </div>
+
+      <div className="fd-card" style={{ marginBottom: 22 }}>
+        <div className="fd-card-h">
+          <h3>Balance Sheet at a Glance</h3>
+        </div>
+        <div className="fd-card-b">
+          <BalanceSheetChart
+            assets={nw.totalAssets}
+            liabilities={nw.totalLiabilities}
+            equity={nw.companyEquity}
+          />
         </div>
       </div>
 

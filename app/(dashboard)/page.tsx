@@ -5,6 +5,7 @@ import { money, pct } from "@/lib/format";
 import { STATUS_LABELS, STATUS_TONE } from "@/lib/constants";
 import { Prisma } from "@prisma/client";
 import { RentCell } from "@/components/RentCell";
+import { ProfitByPropertyChart } from "@/components/charts/ProfitByPropertyChart";
 
 export default async function PortfolioPage() {
   await requireAccessPage("portfolio");
@@ -68,6 +69,22 @@ export default async function PortfolioPage() {
       <div className="fd-card" style={{ marginBottom: 22 }}>
         <div className="fd-card-h">
           <h3>Profit by Property</h3>
+        </div>
+        <div className="fd-card-b">
+          <ProfitByPropertyChart
+            rows={computed.map(({ property, result }) => ({
+              id: property.id,
+              address: property.address,
+              status: property.status,
+              profit: result.actProfit,
+            }))}
+          />
+        </div>
+      </div>
+
+      <div className="fd-card" style={{ marginBottom: 22 }}>
+        <div className="fd-card-h">
+          <h3>Detail</h3>
         </div>
         <div className="fd-tw">
           <table className="fd-t">

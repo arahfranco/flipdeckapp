@@ -21,6 +21,7 @@ import { BudgetLineRow } from "@/components/BudgetLineRow";
 import { AddExpenseButton } from "@/components/AddExpenseButton";
 import { AddPayrollButton } from "@/components/AddPayrollButton";
 import { AddContributionButton } from "@/components/AddContributionButton";
+import { BudgetVsActualChart } from "@/components/charts/BudgetVsActualChart";
 
 type Tab = "dashboard" | "budget" | "expenses" | "payroll" | "capital";
 
@@ -167,6 +168,15 @@ export default async function PropertyDetailPage({
             <div className="fd-stat">
               <div className="lbl">{result.sold ? "Sale Price" : "Target Price"}</div>
               <div className="val">{money(result.priceBasis)}</div>
+            </div>
+          </div>
+
+          <div className="fd-card" style={{ marginBottom: 22 }}>
+            <div className="fd-card-h">
+              <h3>Estimated vs Actual</h3>
+            </div>
+            <div className="fd-card-b">
+              <BudgetVsActualChart byCat={result.byCat} />
             </div>
           </div>
 
