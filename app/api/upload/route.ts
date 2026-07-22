@@ -1,18 +1,28 @@
 import { NextResponse } from "next/server";
 import { Role } from "@prisma/client";
 import { requireAccess, requireRole } from "@/lib/authz";
-import { createUploadUrl } from "@/lib/r2";
+import { putObject } from "@/lib/r2";
 import { env, missingEnv } from "@/lib/env";
 
-// Returns a presigned R2 upload URL. "receipt" is gated the same as the
-// Expenses section (a receipt is meaningless without expense-log access);
-// "logo" is Owner-only, matching Company Settings (spec §5); "property-photo"
-// matches Properties section access.
+// Receives the file itself and forwards it to R2, so the browser only ever
+// talks to this app. See lib/r2.ts putObject() for why this beats handing the
+// browser a presigned URL to Cloudflare.
+//
+// "receipt" is gated the same as the Expenses section (a receipt is meaningless
+// without expense-log access); "logo" is Owner-only, matching Company Settings
+// (spec §5); "property-photo" matches Properties section access.
 const KIND_TO_FOLDER = { receipt: "receipts", logo: "logos", "property-photo": "properties" } as const;
 
+// Serverless caps the request body at 4.5 MB. Reject at 4 MB with a message
+// that says what to do, rather than letting the platform return an opaque 413.
+const MAX_BYTES = 4 * 1024 * 1024;
+
 export async function POST(req: Request) {
-  const body = await req.json();
-  const { kind, contentType } = body;
+  const form = await req.formData().catch(() => null);
+  if (!form) return NextResponse.json({ error: "Expected a file upload" }, { status: 400 });
+
+  const kind = String(form.get("kind") ?? "");
+  const file = form.get("file");
 
   if (kind === "receipt") {
     const guard = await requireAccess("expenses");
@@ -25,6 +35,19 @@ export async function POST(req: Request) {
     if ("error" in guard) return guard.error;
   } else {
     return NextResponse.json({ error: "Invalid kind" }, { status: 400 });
+  }
+
+  if (!(file instanceof File)) {
+    return NextResponse.json({ error: "No file received" }, { status: 400 });
+  }
+  if (file.size === 0) {
+    return NextResponse.json({ error: "That file is empty" }, { status: 400 });
+  }
+  if (file.size > MAX_BYTES) {
+    return NextResponse.json(
+      { error: `That file is ${(file.size / 1024 / 1024).toFixed(1)} MB — the limit is 4 MB.` },
+      { status: 413 }
+    );
   }
 
   // All five are needed. Checking only two let a half-configured deployment
@@ -46,9 +69,7 @@ export async function POST(req: Request) {
   }
 
   // A present-but-malformed value is worse than a missing one: it passes the
-  // check above, then produces a hostname the browser can't resolve, which is
-  // indistinguishable from a CORS refusal on the client. Catch it here, where
-  // we can say what's actually wrong.
+  // check above, then fails deep inside the S3 client with an opaque error.
   const accountId = env("R2_ACCOUNT_ID");
   if (!/^[a-f0-9]{32}$/i.test(accountId)) {
     return NextResponse.json(
@@ -64,9 +85,13 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { uploadUrl, publicUrl } = await createUploadUrl(KIND_TO_FOLDER[kind as keyof typeof KIND_TO_FOLDER], contentType);
-    return NextResponse.json({ uploadUrl, publicUrl });
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const publicUrl = await putObject(KIND_TO_FOLDER[kind as keyof typeof KIND_TO_FOLDER], file.type, buffer);
+    return NextResponse.json({ publicUrl });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Upload setup failed" }, { status: 400 });
+    // The failure is now server-side and visible, instead of an unexplained
+    // rejection in the user's browser.
+    console.error("Upload to R2 failed", e);
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Upload failed" }, { status: 502 });
   }
 }

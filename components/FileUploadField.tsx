@@ -9,6 +9,40 @@ interface Props {
   label?: string;
 }
 
+// Serverless caps the request body at 4.5 MB, and a phone photo is routinely
+// larger than that. Downscaling here keeps uploads well under the limit and
+// costs nothing visually — property photos are displayed at most 1280px wide.
+const MAX_EDGE = 1600;
+const JPEG_QUALITY = 0.85;
+
+/** Animated GIFs would lose their frames on a canvas, and PDFs aren't images. */
+const RESIZABLE = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+async function downscale(file: File): Promise<Blob> {
+  if (!RESIZABLE.has(file.type)) return file;
+
+  const bitmap = await createImageBitmap(file).catch(() => null);
+  if (!bitmap) return file; // corrupt or unsupported — let the server judge it
+
+  const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+  if (scale === 1 && file.size <= 3 * 1024 * 1024) return file;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return file;
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+
+  // PNG screenshots of receipts compress far better as JPEG, and transparency
+  // is irrelevant for photos — so everything resizable normalises to JPEG.
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY)
+  );
+  return blob && blob.size < file.size ? blob : file;
+}
+
 export function FileUploadField({ kind, value, onUploaded, label = "File" }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,33 +53,20 @@ export function FileUploadField({ kind, value, onUploaded, label = "File" }: Pro
     setBusy(true);
     setError(null);
     try {
-      const setupRes = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind, contentType: file.type }),
-      });
-      if (!setupRes.ok) throw new Error((await setupRes.json()).error ?? "Could not start upload");
-      const { uploadUrl, publicUrl } = await setupRes.json();
+      const body = await downscale(file);
+      const form = new FormData();
+      form.append("kind", kind);
+      // Name the part after the original file so the extension survives, but
+      // carry the possibly-converted type.
+      form.append("file", new File([body], file.name, { type: body.type || file.type }));
 
-      // The browser never exposes *why* a cross-origin request died — a missing
-      // CORS rule, an ad blocker and an offline network all surface as the same
-      // opaque TypeError. So report the origin (which is what a CORS rule must
-      // match, character for character) and name the likely causes rather than
-      // asserting one.
-      let putRes: Response;
-      try {
-        putRes = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-      } catch (netErr) {
-        const uploadHost = new URL(uploadUrl).host;
-        console.error("Upload blocked", { origin: window.location.origin, uploadHost, netErr });
-        throw new Error(
-          `Upload blocked. Site "${window.location.origin}" -> storage "${uploadHost}". ` +
-            `Either storage does not allow that site, or something in this browser or network blocked the request.`
-        );
-      }
-      if (!putRes.ok) throw new Error(`Upload failed (${putRes.status} from storage)`);
+      // Same-origin — no CORS, and nothing between the browser and Cloudflare
+      // to veto it. A failure here comes back as a real status and message.
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? `Upload failed (${res.status})`);
 
-      onUploaded(publicUrl);
+      onUploaded(data.publicUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
