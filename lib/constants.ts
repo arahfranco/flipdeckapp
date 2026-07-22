@@ -16,12 +16,27 @@ export const COST_CATEGORIES: Category[] = ["Purchase Costs", "Rehab Costs", "Ho
 
 export const SUBS_BY_CAT: Record<Category, string[]> = {
   "Purchase Costs": ["Purchase Price", "Closing Costs", "Title & Escrow", "Inspection", "Appraisal", "Transfer Tax"],
+  // Ordered roughly by trade sequence — materials, then structure out to in,
+  // then systems, then finishes. Kept deliberately short: a long checklist
+  // spreads one job across several lines and makes the rollup harder to read.
   "Rehab Costs": [
-    "Demolition", "Foundation", "Framing", "Roofing", "Siding", "Windows", "Exterior Doors", "Gutters",
-    "Electrical", "Plumbing", "HVAC", "Insulation", "Drywall", "Interior Doors", "Trim & Millwork",
-    "Interior Paint", "Exterior Paint", "Flooring", "Tile", "Kitchen Cabinets", "Countertops", "Appliances",
-    "Bathroom Fixtures", "Lighting", "Hardware", "Landscaping", "Fencing", "Driveway & Concrete",
-    "Permits & Inspections", "Dumpster & Cleanup", "Building Materials", "Miscellaneous and Permits", "Contingency",
+    "Building Materials",
+    "Demolition and Site Prep",
+    "Framing",
+    "Roofing",
+    "Exterior Walls and Siding",
+    "HVAC",
+    "Plumbing",
+    "Electrical",
+    "Insulation",
+    "Interior Walls and Drywall",
+    "Flooring",
+    "Kitchen Remodel",
+    "Bathroom Remodels",
+    "Interior Doors and Millwork",
+    "Fixtures and Appliances",
+    "Landscaping",
+    "Miscellaneous and Permits",
     // "Labor (Payroll)" is derived from PayrollEntry sums, not user-editable — see calc.ts.
   ],
   "Holding Costs": ["Loan Interest", "Property Tax", "Insurance", "Utilities", "HOA Dues", "Security & Maintenance"],

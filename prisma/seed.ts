@@ -6,32 +6,13 @@ const prisma = new PrismaClient();
 // Ported from the prototype's seed data (FlipDeck (1).jsx) so the dashboards are
 // legible immediately — three Bay Area properties, one sold.
 
-const CATEGORIES = ["Purchase Costs", "Rehab Costs", "Holding Costs", "Selling Costs", "Selling Price"] as const;
+// Categories come from lib/constants — the app's own source of truth. This file
+// used to keep a second copy, which silently went stale the moment the real list
+// changed, seeding names with no matching budget line.
+import { CATEGORIES, SUBS_BY_CAT, type Category } from "../lib/constants";
 
-const SUBS_BY_CAT: Record<string, string[]> = {
-  "Purchase Costs": ["Purchase Price", "Closing Costs", "Title & Escrow", "Inspection", "Appraisal", "Transfer Tax"],
-  "Rehab Costs": [
-    "Demolition", "Foundation", "Framing", "Roofing", "Siding", "Windows", "Exterior Doors", "Gutters",
-    "Electrical", "Plumbing", "HVAC", "Insulation", "Drywall", "Interior Doors", "Trim & Millwork",
-    "Interior Paint", "Exterior Paint", "Flooring", "Tile", "Kitchen Cabinets", "Countertops", "Appliances",
-    "Bathroom Fixtures", "Lighting", "Hardware", "Landscaping", "Fencing", "Driveway & Concrete",
-    "Permits & Inspections", "Dumpster & Cleanup", "Contingency", "Labor (Payroll)",
-  ],
-  "Holding Costs": ["Loan Interest", "Property Tax", "Insurance", "Utilities", "HOA Dues", "Security & Maintenance"],
-  "Selling Costs": ["Listing Commission", "Buyer Commission", "Staging", "Photography", "Escrow Fees", "Seller Concessions"],
-  "Selling Price": ["Sale Price"],
-};
-
-const ALL_SUBS = Object.entries(SUBS_BY_CAT).flatMap(([cat, subs]) => subs.map((s) => ({ cat, sub: s })));
-const catOf = (sub: string) => ALL_SUBS.find((x) => x.sub === sub)?.cat ?? "Rehab Costs";
-
-const line = (propertyId: string, sub: string, estimated: number, actual = 0) => ({
-  propertyId,
-  category: catOf(sub),
-  subcategory: sub,
-  estimated,
-  actual,
-});
+/** estimated/actual per subcategory; anything unlisted seeds at zero. */
+type Estimates = Record<string, [number, number]>;
 
 async function main() {
   const company = {
@@ -85,93 +66,62 @@ async function main() {
     await prisma.property.upsert({ where: { id: p.id }, update: {}, create: p });
   }
 
-  const budget = [
-    // ---- p1 Fremont
-    line("p1", "Purchase Price", 985000, 985000),
-    line("p1", "Closing Costs", 14000, 13120),
-    line("p1", "Title & Escrow", 6500, 6820),
-    line("p1", "Inspection", 1200, 1450),
-    line("p1", "Demolition", 12000, 13800),
-    line("p1", "Framing", 18000, 21400),
-    line("p1", "Roofing", 26000, 24900),
-    line("p1", "Electrical", 22000, 26750),
-    line("p1", "Plumbing", 19000, 18200),
-    line("p1", "HVAC", 16500, 0),
-    line("p1", "Drywall", 14000, 11600),
-    line("p1", "Interior Paint", 9500, 8900),
-    line("p1", "Flooring", 21000, 0),
-    line("p1", "Kitchen Cabinets", 24000, 0),
-    line("p1", "Countertops", 11000, 0),
-    line("p1", "Bathroom Fixtures", 9000, 4200),
-    line("p1", "Landscaping", 8000, 0),
-    line("p1", "Permits & Inspections", 6500, 7150),
-    line("p1", "Dumpster & Cleanup", 4000, 3100),
-    line("p1", "Contingency", 25000, 0),
-    line("p1", "Loan Interest", 42000, 21400),
-    line("p1", "Property Tax", 11000, 5700),
-    line("p1", "Insurance", 4200, 2100),
-    line("p1", "Utilities", 2800, 1640),
-    line("p1", "Listing Commission", 38000, 0),
-    line("p1", "Buyer Commission", 38000, 0),
-    line("p1", "Staging", 9000, 0),
-    line("p1", "Escrow Fees", 5000, 0),
-    line("p1", "Sale Price", 1520000, 0),
+  // Every property gets the full checklist at zero, exactly as the app creates
+  // one, then these estimates are layered on so the dashboards have something to
+  // show. Amounts from categories the new rehab list merged (cabinets and
+  // countertops into Kitchen Remodel; paint, permits, cleanup and contingency
+  // into Miscellaneous and Permits) are summed rather than dropped.
+  const estimates: Record<string, Estimates> = {
+    p1: {
+      "Purchase Price": [985000, 985000], "Closing Costs": [14000, 13120],
+      "Title & Escrow": [6500, 6820], Inspection: [1200, 1450],
+      "Demolition and Site Prep": [12000, 13800], Framing: [18000, 21400],
+      Roofing: [26000, 24900], Electrical: [22000, 26750], Plumbing: [19000, 18200],
+      HVAC: [16500, 0], "Interior Walls and Drywall": [14000, 11600],
+      Flooring: [21000, 0], "Kitchen Remodel": [35000, 0],
+      "Bathroom Remodels": [9000, 4200], Landscaping: [8000, 0],
+      "Miscellaneous and Permits": [45000, 19150],
+      "Loan Interest": [42000, 21400], "Property Tax": [11000, 5700],
+      Insurance: [4200, 2100], Utilities: [2800, 1640],
+      "Listing Commission": [38000, 0], "Buyer Commission": [38000, 0],
+      Staging: [9000, 0], "Escrow Fees": [5000, 0], "Sale Price": [1520000, 0],
+    },
+    p2: {
+      "Purchase Price": [720000, 720000], "Closing Costs": [11000, 10400],
+      "Title & Escrow": [5200, 5200], Roofing: [18000, 17250],
+      Electrical: [15000, 16400], Plumbing: [12000, 12900],
+      "Interior Walls and Drywall": [9000, 8700], Flooring: [15000, 16100],
+      "Kitchen Remodel": [27500, 29300], "Fixtures and Appliances": [11000, 11300],
+      "Bathroom Remodels": [6500, 6300], Landscaping: [6000, 5800],
+      "Miscellaneous and Permits": [26500, 12350],
+      "Loan Interest": [28000, 26900], "Property Tax": [7500, 7200],
+      Insurance: [3200, 3200], "Listing Commission": [26000, 0],
+      "Buyer Commission": [26000, 0], Staging: [7500, 7500],
+      "Escrow Fees": [3800, 0], "Sale Price": [1075000, 0],
+    },
+    p3: {
+      "Purchase Price": [890000, 890000], "Closing Costs": [13000, 12750],
+      "Title & Escrow": [6000, 6000], Framing: [14000, 15900],
+      Roofing: [22000, 22400], Electrical: [19000, 20100], Plumbing: [17000, 17800],
+      HVAC: [14000, 13600], "Interior Walls and Drywall": [12000, 12300],
+      Flooring: [19000, 20500], "Kitchen Remodel": [32000, 34400],
+      "Fixtures and Appliances": [9000, 9400], "Bathroom Remodels": [8000, 8150],
+      Landscaping: [7500, 8900], "Miscellaneous and Permits": [34000, 14400],
+      "Loan Interest": [36000, 39200], "Property Tax": [9500, 10100],
+      Insurance: [3800, 3800], "Listing Commission": [33000, 33900],
+      "Buyer Commission": [33000, 33900], Staging: [8500, 8500],
+      "Escrow Fees": [4500, 4720], "Sale Price": [1350000, 1356000],
+    },
+  };
 
-    // ---- p2 South SF
-    line("p2", "Purchase Price", 720000, 720000),
-    line("p2", "Closing Costs", 11000, 10400),
-    line("p2", "Title & Escrow", 5200, 5200),
-    line("p2", "Roofing", 18000, 17250),
-    line("p2", "Electrical", 15000, 16400),
-    line("p2", "Plumbing", 12000, 12900),
-    line("p2", "Drywall", 9000, 8700),
-    line("p2", "Interior Paint", 7000, 7250),
-    line("p2", "Flooring", 15000, 16100),
-    line("p2", "Kitchen Cabinets", 19000, 20400),
-    line("p2", "Countertops", 8500, 8900),
-    line("p2", "Appliances", 7000, 6850),
-    line("p2", "Bathroom Fixtures", 6500, 6300),
-    line("p2", "Lighting", 4000, 4450),
-    line("p2", "Landscaping", 6000, 5800),
-    line("p2", "Permits & Inspections", 4500, 5100),
-    line("p2", "Contingency", 15000, 0),
-    line("p2", "Loan Interest", 28000, 26900),
-    line("p2", "Property Tax", 7500, 7200),
-    line("p2", "Insurance", 3200, 3200),
-    line("p2", "Listing Commission", 26000, 0),
-    line("p2", "Buyer Commission", 26000, 0),
-    line("p2", "Staging", 7500, 7500),
-    line("p2", "Escrow Fees", 3800, 0),
-    line("p2", "Sale Price", 1075000, 0),
-
-    // ---- p3 San Jose (sold)
-    line("p3", "Purchase Price", 890000, 890000),
-    line("p3", "Closing Costs", 13000, 12750),
-    line("p3", "Title & Escrow", 6000, 6000),
-    line("p3", "Framing", 14000, 15900),
-    line("p3", "Roofing", 22000, 22400),
-    line("p3", "Electrical", 19000, 20100),
-    line("p3", "Plumbing", 17000, 17800),
-    line("p3", "HVAC", 14000, 13600),
-    line("p3", "Drywall", 12000, 12300),
-    line("p3", "Interior Paint", 8500, 8200),
-    line("p3", "Flooring", 19000, 20500),
-    line("p3", "Kitchen Cabinets", 22000, 23800),
-    line("p3", "Countertops", 10000, 10600),
-    line("p3", "Appliances", 9000, 9400),
-    line("p3", "Bathroom Fixtures", 8000, 8150),
-    line("p3", "Landscaping", 7500, 8900),
-    line("p3", "Permits & Inspections", 5500, 6200),
-    line("p3", "Contingency", 20000, 0),
-    line("p3", "Loan Interest", 36000, 39200),
-    line("p3", "Property Tax", 9500, 10100),
-    line("p3", "Insurance", 3800, 3800),
-    line("p3", "Listing Commission", 33000, 33900),
-    line("p3", "Buyer Commission", 33000, 33900),
-    line("p3", "Staging", 8500, 8500),
-    line("p3", "Escrow Fees", 4500, 4720),
-    line("p3", "Sale Price", 1350000, 1356000),
-  ];
+  const budget = properties.flatMap((p) =>
+    (CATEGORIES as readonly Category[]).flatMap((cat) =>
+      SUBS_BY_CAT[cat].map((sub) => {
+        const [estimated, actual] = estimates[p.id]?.[sub] ?? [0, 0];
+        return { propertyId: p.id, category: cat, subcategory: sub, estimated, actual };
+      })
+    )
+  );
   for (const b of budget) {
     await prisma.budgetLine.upsert({
       where: { propertyId_subcategory: { propertyId: b.propertyId, subcategory: b.subcategory } },
@@ -190,16 +140,16 @@ async function main() {
   await prisma.contribution.deleteMany({});
 
   const expenses = [
-    { date: "2026-06-02", propertyId: "p1", amount: 13800, description: "Interior demo, full gut of kitchen + 2 baths", subcategory: "Demolition", status: ExpenseStatus.PAID, receiptUrl: "https://drive.example/r/9f2a" },
+    { date: "2026-06-02", propertyId: "p1", amount: 13800, description: "Interior demo, full gut of kitchen + 2 baths", subcategory: "Demolition and Site Prep", status: ExpenseStatus.PAID, receiptUrl: "https://drive.example/r/9f2a" },
     { date: "2026-06-11", propertyId: "p1", amount: 21400, description: "Structural framing, load-bearing wall removal", subcategory: "Framing", status: ExpenseStatus.PAID, receiptUrl: "https://drive.example/r/1c88" },
     { date: "2026-06-18", propertyId: "p1", amount: 24900, description: "Comp shingle tear-off and replace", subcategory: "Roofing", status: ExpenseStatus.PAID, receiptUrl: null },
     { date: "2026-06-25", propertyId: "p1", amount: 26750, description: "Full rewire, new 200A panel", subcategory: "Electrical", status: ExpenseStatus.PAID, receiptUrl: "https://drive.example/r/44b1" },
     { date: "2026-07-01", propertyId: "p1", amount: 18200, description: "Repipe, PEX throughout", subcategory: "Plumbing", status: ExpenseStatus.PENDING, receiptUrl: null },
-    { date: "2026-07-06", propertyId: "p1", amount: 11600, description: "Hang + tape, level 4 finish", subcategory: "Drywall", status: ExpenseStatus.PENDING, receiptUrl: null },
-    { date: "2026-07-08", propertyId: "p1", amount: 4200, description: "Vanities and tub deposit", subcategory: "Bathroom Fixtures", status: ExpenseStatus.PENDING, receiptUrl: null },
-    { date: "2026-05-14", propertyId: "p2", amount: 20400, description: "Shaker cabinets, full kitchen", subcategory: "Kitchen Cabinets", status: ExpenseStatus.PAID, receiptUrl: "https://drive.example/r/7d3e" },
+    { date: "2026-07-06", propertyId: "p1", amount: 11600, description: "Hang + tape, level 4 finish", subcategory: "Interior Walls and Drywall", status: ExpenseStatus.PENDING, receiptUrl: null },
+    { date: "2026-07-08", propertyId: "p1", amount: 4200, description: "Vanities and tub deposit", subcategory: "Bathroom Remodels", status: ExpenseStatus.PENDING, receiptUrl: null },
+    { date: "2026-05-14", propertyId: "p2", amount: 20400, description: "Shaker cabinets, full kitchen", subcategory: "Kitchen Remodel", status: ExpenseStatus.PAID, receiptUrl: "https://drive.example/r/7d3e" },
     { date: "2026-05-22", propertyId: "p2", amount: 16100, description: "Engineered oak, 1,480 sqft", subcategory: "Flooring", status: ExpenseStatus.PAID, receiptUrl: "https://drive.example/r/2ab0" },
-    { date: "2026-06-04", propertyId: "p2", amount: 8900, description: "Quartz slab, install + template", subcategory: "Countertops", status: ExpenseStatus.PAID, receiptUrl: null },
+    { date: "2026-06-04", propertyId: "p2", amount: 8900, description: "Quartz slab, install + template", subcategory: "Kitchen Remodel", status: ExpenseStatus.PAID, receiptUrl: null },
   ];
   for (const e of expenses) {
     await prisma.expense.create({ data: { ...e, date: new Date(e.date) } });
