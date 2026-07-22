@@ -89,9 +89,30 @@ export async function POST(req: Request) {
     const publicUrl = await putObject(KIND_TO_FOLDER[kind as keyof typeof KIND_TO_FOLDER], file.type, buffer);
     return NextResponse.json({ publicUrl });
   } catch (e) {
-    // The failure is now server-side and visible, instead of an unexplained
-    // rejection in the user's browser.
     console.error("Upload to R2 failed", e);
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Upload failed" }, { status: 502 });
+
+    // R2 rejecting the signature says the credentials this deployment is using
+    // differ from the ones that work elsewhere — but the message alone can't
+    // say how. Report the shape of each value (never the value) so a truncated
+    // or swapped key is identifiable without exposing a secret. The caller is
+    // already an authenticated staff user by this point.
+    const shape = (name: string) => {
+      const v = env(name);
+      return `${v.length}c${/^[A-Za-z0-9]+$/.test(v) ? "" : "/nonalnum"}`;
+    };
+
+    return NextResponse.json(
+      {
+        error: e instanceof Error ? e.message : "Upload failed",
+        diagnostic: {
+          name: e instanceof Error ? e.name : "unknown",
+          host: `${accountId}.r2.cloudflarestorage.com`,
+          bucket: env("R2_BUCKET_NAME"),
+          keyId: shape("R2_ACCESS_KEY_ID"),
+          secret: shape("R2_SECRET_ACCESS_KEY"),
+        },
+      },
+      { status: 502 }
+    );
   }
 }

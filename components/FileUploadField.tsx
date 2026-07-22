@@ -64,7 +64,10 @@ export function FileUploadField({ kind, value, onUploaded, label = "File" }: Pro
       // to veto it. A failure here comes back as a real status and message.
       const res = await fetch("/api/upload", { method: "POST", body: form });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? `Upload failed (${res.status})`);
+      if (!res.ok) {
+        const detail = data.diagnostic ? ` [${Object.entries(data.diagnostic).map(([k, v]) => `${k}=${v}`).join(" ")}]` : "";
+        throw new Error(`${data.error ?? `Upload failed (${res.status})`}${detail}`);
+      }
 
       onUploaded(data.publicUrl);
     } catch (err) {

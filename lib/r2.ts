@@ -11,6 +11,14 @@ function r2Client() {
       accessKeyId: env("R2_ACCESS_KEY_ID"),
       secretAccessKey: env("R2_SECRET_ACCESS_KEY"),
     },
+    // From v3.729 the SDK adds a CRC32 checksum by default, which it sends as
+    // an aws-chunked body with a trailer. That switches the payload signature
+    // to STREAMING-UNSIGNED-PAYLOAD-TRAILER, and R2 refuses it with
+    // "Please use AWS4-HMAC-SHA256". Cloudflare's documented fix is to only
+    // checksum when an operation actually requires it, which for PutObject
+    // means not at all — the payload is still fully signed either way.
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
   });
 }
 
