@@ -74,7 +74,11 @@ export default async function CompanyValuePage() {
         <div className="fd-stat">
           <div className="lbl">Rental Income</div>
           <div className="val">{money(nw.monthlyRent)}<span style={{ fontSize: 13 }}>/mo</span></div>
-          <div className="meta">{money(nw.annualRent)} annualized</div>
+          <div className="meta">
+            {nw.rentedCount === 0
+              ? "No properties marked Rented"
+              : `${money(nw.annualRent)} annualized · ${nw.rentedCount} rented`}
+          </div>
         </div>
       </div>
 

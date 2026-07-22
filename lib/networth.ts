@@ -95,8 +95,10 @@ export interface NetWorth {
   totalLiabilities: Decimal;
   companyEquity: Decimal;
   partnerEquity: Decimal;
+  /** rent actually being collected — RENTED properties only, not projections */
   monthlyRent: Decimal;
   annualRent: Decimal;
+  rentedCount: number;
 }
 
 /**
@@ -149,7 +151,11 @@ export function computeNetWorth(
     return s;
   }, new Decimal(0));
 
-  const monthlyRent = held.reduce((s, p) => s.plus(p.monthlyRent ?? new Decimal(0)), new Decimal(0));
+  // Only RENTED properties, so this is rent actually being collected. Rent set
+  // on a property still in rehab is a projection of what it could earn once
+  // finished — counting it here would report money that isn't coming in.
+  const rented = properties.filter((p) => p.status === Status.RENTED);
+  const monthlyRent = rented.reduce((s, p) => s.plus(p.monthlyRent ?? new Decimal(0)), new Decimal(0));
 
   return {
     properties: valuations,
@@ -164,5 +170,6 @@ export function computeNetWorth(
     partnerEquity,
     monthlyRent,
     annualRent: monthlyRent.times(12),
+    rentedCount: rented.length,
   };
 }

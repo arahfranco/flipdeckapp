@@ -192,12 +192,12 @@ describe("computeNetWorth — equity and totals", () => {
 });
 
 describe("computeNetWorth — rental income", () => {
-  it("sums monthly rent across held properties and annualizes it", () => {
+  it("sums monthly rent across RENTED properties and annualizes it", () => {
     const result = computeNetWorth(
       [
-        property({ id: "a", monthlyRent: D(2200) }),
-        property({ id: "b", monthlyRent: D(1800) }),
-        property({ id: "c", monthlyRent: null }),
+        property({ id: "a", status: Status.RENTED, monthlyRent: D(2200) }),
+        property({ id: "b", status: Status.RENTED, monthlyRent: D(1800) }),
+        property({ id: "c", status: Status.RENTED, monthlyRent: null }),
       ],
       [],
       [],
@@ -205,6 +205,24 @@ describe("computeNetWorth — rental income", () => {
     );
     expect(result.monthlyRent.toNumber()).toBe(4000);
     expect(result.annualRent.toNumber()).toBe(48000);
+    expect(result.rentedCount).toBe(3);
+  });
+
+  // Rent on a property that isn't RENTED is a projection of what it could earn
+  // once finished, not money coming in — reporting it as income overstates it.
+  it("ignores rent on a property that isn't RENTED", () => {
+    const result = computeNetWorth(
+      [
+        property({ id: "rented", status: Status.RENTED, monthlyRent: D(2000) }),
+        property({ id: "rehab", status: Status.IN_REHAB, monthlyRent: D(1800) }),
+        property({ id: "listed", status: Status.LISTED, monthlyRent: D(1500) }),
+      ],
+      [],
+      [],
+      []
+    );
+    expect(result.monthlyRent.toNumber()).toBe(2000);
+    expect(result.rentedCount).toBe(1);
   });
 
   it("ignores rent on a SOLD property", () => {
@@ -215,5 +233,19 @@ describe("computeNetWorth — rental income", () => {
       []
     );
     expect(result.monthlyRent.toNumber()).toBe(0);
+    expect(result.rentedCount).toBe(0);
+  });
+
+  // A RENTED property is still owned, so it stays on the balance sheet — only
+  // SOLD leaves it.
+  it("counts a RENTED property as a held asset", () => {
+    const result = computeNetWorth(
+      [property({ id: "rented", status: Status.RENTED, marketValue: D(400000), monthlyRent: D(2000) })],
+      [],
+      [],
+      []
+    );
+    expect(result.propertyValue.toNumber()).toBe(400000);
+    expect(result.totalAssets.toNumber()).toBe(400000);
   });
 });
