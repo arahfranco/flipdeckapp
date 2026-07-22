@@ -4,6 +4,8 @@ out/
 build/
 .env
 .env*.local
+# Scratch file holding R2 credentials in plain text for copying into Vercel.
+R2-VALUES.txt
 *.tsbuildinfo
 next-env.d.ts
 .vercel
