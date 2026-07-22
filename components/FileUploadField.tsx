@@ -27,14 +27,20 @@ export function FileUploadField({ kind, value, onUploaded, label = "File" }: Pro
       if (!setupRes.ok) throw new Error((await setupRes.json()).error ?? "Could not start upload");
       const { uploadUrl, publicUrl } = await setupRes.json();
 
-      // A bucket with no CORS rule for this origin rejects the browser's
-      // preflight, which surfaces here as an opaque TypeError rather than a
-      // status code — worth naming, since the fix is bucket config, not code.
+      // The browser never exposes *why* a cross-origin request died — a missing
+      // CORS rule, an ad blocker and an offline network all surface as the same
+      // opaque TypeError. So report the origin (which is what a CORS rule must
+      // match, character for character) and name the likely causes rather than
+      // asserting one.
       let putRes: Response;
       try {
         putRes = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-      } catch {
-        throw new Error("Storage rejected the upload from this browser — the bucket needs a CORS rule for this site.");
+      } catch (netErr) {
+        console.error("Upload blocked", { origin: window.location.origin, uploadHost: new URL(uploadUrl).host, netErr });
+        throw new Error(
+          `Upload was blocked before it reached storage. This site is "${window.location.origin}" — ` +
+            `storage must allow exactly that address. A browser extension or network filter can also cause this.`
+        );
       }
       if (!putRes.ok) throw new Error(`Upload failed (${putRes.status} from storage)`);
 
