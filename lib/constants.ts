@@ -1,4 +1,4 @@
-import { Role, Status, ExpenseStatus, LiabilityKind } from "@prisma/client";
+import { Role, Status, ExpenseStatus, LiabilityKind, IncomeCategory } from "@prisma/client";
 
 // The five budget categories and their subcategories (spec §3 "The five categories").
 // "Selling Price" is revenue, not cost — computeProperty() in calc.ts treats it separately.
@@ -49,6 +49,13 @@ export const CAN_SEE: Record<Role, string[]> = {
   [Role.PARTNER]: ["portfolio", "properties", "expenses", "partners", "account"],
   [Role.PARTNER_LENDER]: ["portfolio", "properties", "partners", "account"],
   [Role.BOOKKEEPER]: ["portfolio", "properties", "expenses", "bank", "payroll", "account"],
+};
+
+export const INCOME_CATEGORY_LABELS: Record<IncomeCategory, string> = {
+  [IncomeCategory.RENT]: "Rent",
+  [IncomeCategory.SALE_PROCEEDS]: "Sale Proceeds",
+  [IncomeCategory.REFUND]: "Refund",
+  [IncomeCategory.OTHER]: "Other",
 };
 
 export const LIABILITY_KIND_LABELS: Record<LiabilityKind, string> = {

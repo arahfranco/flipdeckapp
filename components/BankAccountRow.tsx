@@ -5,15 +5,25 @@ import { useRouter } from "next/navigation";
 import { money2 } from "@/lib/format";
 
 interface Props {
-  account: { id: string; name: string; balance: string; notes: string | null; updatedAt: string };
+  account: {
+    id: string;
+    name: string;
+    openingBalance: string;
+    moneyIn: string;
+    moneyOut: string;
+    balance: string;
+    txnCount: number;
+  };
 }
 
-export function CashAccountRow({ account }: Props) {
+// Balance is derived and therefore read-only — only the opening balance is
+// editable, so the displayed figure can never drift from the transactions.
+export function BankAccountRow({ account }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [name, setName] = useState(account.name);
-  const [balance, setBalance] = useState(account.balance);
+  const [openingBalance, setOpeningBalance] = useState(account.openingBalance);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,10 +31,10 @@ export function CashAccountRow({ account }: Props) {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/cash-accounts/${account.id}`, {
+      const res = await fetch(`/api/bank-accounts/${account.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, balance: Number(balance) }),
+        body: JSON.stringify({ name, openingBalance }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Could not save");
       setEditing(false);
@@ -40,7 +50,7 @@ export function CashAccountRow({ account }: Props) {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/cash-accounts/${account.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/bank-accounts/${account.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error((await res.json()).error ?? "Could not delete");
       router.refresh();
     } catch (e) {
@@ -60,11 +70,14 @@ export function CashAccountRow({ account }: Props) {
           <input
             type="number"
             step="0.01"
-            value={balance}
-            onChange={(e) => setBalance(e.target.value)}
-            style={{ width: 120, textAlign: "right" }}
+            value={openingBalance}
+            onChange={(e) => setOpeningBalance(e.target.value)}
+            style={{ width: 110, textAlign: "right" }}
           />
         </td>
+        <td className="num">{money2(Number(account.moneyIn))}</td>
+        <td className="num">{money2(Number(account.moneyOut))}</td>
+        <td className="num">{money2(Number(account.balance))}</td>
         <td>
           <div style={{ display: "flex", gap: 6 }}>
             <button className="fd-btn sm" onClick={save} disabled={busy}>
@@ -85,10 +98,15 @@ export function CashAccountRow({ account }: Props) {
       <td>
         {account.name}
         <span className="hint" style={{ display: "block", fontSize: 10 }}>
-          updated {account.updatedAt}
+          {account.txnCount} transaction{account.txnCount === 1 ? "" : "s"}
         </span>
       </td>
-      <td className="num">{money2(Number(account.balance))}</td>
+      <td className="num">{money2(Number(account.openingBalance))}</td>
+      <td className="num pos">{money2(Number(account.moneyIn))}</td>
+      <td className="num neg">{money2(Number(account.moneyOut))}</td>
+      <td className={`num ${Number(account.balance) >= 0 ? "pos" : "neg"}`}>
+        <strong>{money2(Number(account.balance))}</strong>
+      </td>
       <td>
         <div style={{ display: "flex", gap: 6 }}>
           <button className="fd-btn ghost sm" onClick={() => setEditing(true)}>
@@ -107,15 +125,26 @@ export function CashAccountRow({ account }: Props) {
                 <h3>Delete {account.name}?</h3>
               </div>
               <div className="fd-modal-b">
-                <p>
-                  Removes this account and its {money2(Number(account.balance))} balance from cash on hand.
-                </p>
+                {account.txnCount > 0 ? (
+                  <p className="err">
+                    This account has {account.txnCount} transaction{account.txnCount === 1 ? "" : "s"} — delete or
+                    move those first.
+                  </p>
+                ) : (
+                  <p>Removes this account from cash on hand.</p>
+                )}
+                {error && <p className="err">{error}</p>}
               </div>
               <div className="fd-modal-f">
                 <button className="fd-btn ghost" onClick={() => setConfirming(false)} disabled={busy}>
                   Cancel
                 </button>
-                <button className="fd-btn" onClick={remove} disabled={busy} style={{ background: "var(--neg)" }}>
+                <button
+                  className="fd-btn"
+                  onClick={remove}
+                  disabled={busy || account.txnCount > 0}
+                  style={{ background: "var(--neg)" }}
+                >
                   {busy ? "Deleting…" : "Delete"}
                 </button>
               </div>

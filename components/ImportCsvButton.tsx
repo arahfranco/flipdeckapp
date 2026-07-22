@@ -18,6 +18,7 @@ interface ImportItem {
   date?: string;
   description?: string;
   amount?: number;
+  direction?: "IN" | "OUT";
   guess?: string | null;
   skipReason?: string;
 }
@@ -36,25 +37,29 @@ interface ImportResult {
 
 type Step = "pick" | "mapping" | "preview" | "done";
 
-export function ImportCsvButton() {
+interface Props {
+  accounts: { id: string; name: string }[];
+}
+
+export function ImportCsvButton({ accounts }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("pick");
-  const [account, setAccount] = useState("");
+  const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
   const [csvText, setCsvText] = useState("");
   const [result, setResult] = useState<ImportResult | null>(null);
   const [map, setMap] = useState<ColumnMap>({ date: null, desc: null, amount: null, debit: null, credit: null });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [importedCount, setImportedCount] = useState(0);
+  const [imported, setImported] = useState<{ imported: number; moneyIn: number; moneyOut: number } | null>(null);
 
   function reset() {
     setStep("pick");
-    setAccount("");
+    setAccountId(accounts[0]?.id ?? "");
     setCsvText("");
     setResult(null);
     setError(null);
-    setImportedCount(0);
+    setImported(null);
   }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -72,7 +77,7 @@ export function ImportCsvButton() {
       const res = await fetch("/api/bank/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ csvText: text, map: mapOverride }),
+        body: JSON.stringify({ csvText: text, accountId, map: mapOverride }),
       });
       const data: ImportResult = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not parse file");
@@ -92,21 +97,17 @@ export function ImportCsvButton() {
   }
 
   async function confirmImport() {
-    if (!account.trim()) {
-      setError("Account name is required");
-      return;
-    }
     setBusy(true);
     setError(null);
     try {
       const res = await fetch("/api/bank/import/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ csvText, map, account }),
+        body: JSON.stringify({ csvText, map, accountId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Import failed");
-      setImportedCount(data.imported);
+      setImported(data);
       setStep("done");
       router.refresh();
     } catch (e) {
@@ -123,15 +124,19 @@ export function ImportCsvButton() {
 
   if (!open) {
     return (
-      <button className="fd-btn sm" onClick={() => setOpen(true)}>
+      <button className="fd-btn sm" onClick={() => setOpen(true)} disabled={accounts.length === 0}>
         Import CSV
       </button>
     );
   }
 
+  const accountName = accounts.find((a) => a.id === accountId)?.name ?? "";
+  const freshItems = result?.items.filter((i) => i.status === "fresh") ?? [];
+  const freshIn = freshItems.filter((i) => i.direction === "IN").length;
+
   return (
     <div className="fd-mask" onClick={() => !busy && close()}>
-      <div className="fd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
+      <div className="fd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 680 }}>
         <div className="fd-modal-h">
           <h3>Import Bank CSV</h3>
         </div>
@@ -139,19 +144,22 @@ export function ImportCsvButton() {
           {step === "pick" && (
             <>
               <div className="fld">
-                <label>Account name</label>
-                <input
-                  type="text"
-                  value={account}
-                  onChange={(e) => setAccount(e.target.value)}
-                  placeholder="Chase •4471"
-                  required
-                />
+                <label>Account</label>
+                <select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="hint">
+                  Duplicate detection is scoped to this account — the same statement imported into two accounts is
+                  two genuinely different sets of transactions.
+                </p>
               </div>
               <div className="fld">
                 <label>CSV file</label>
-                <input type="file" accept=".csv,text/csv" onChange={handleFile} disabled={busy || !account.trim()} />
-                {!account.trim() && <p className="hint">Enter the account name first.</p>}
+                <input type="file" accept=".csv,text/csv" onChange={handleFile} disabled={busy || !accountId} />
               </div>
             </>
           )}
@@ -161,14 +169,22 @@ export function ImportCsvButton() {
               <p className="hint" style={{ marginBottom: 12 }}>
                 This file&apos;s headers weren&apos;t recognized. Point each field at the right column.
               </p>
-              {(["date", "desc", "amount", "debit"] as const).map((field) => (
+              {(["date", "desc", "amount", "debit", "credit"] as const).map((field) => (
                 <div className="fld" key={field}>
-                  <label>{field === "desc" ? "Description" : field === "debit" ? "Debit / withdrawal (optional)" : field[0].toUpperCase() + field.slice(1)}</label>
+                  <label>
+                    {field === "desc"
+                      ? "Description"
+                      : field === "debit"
+                        ? "Debit / withdrawal (optional)"
+                        : field === "credit"
+                          ? "Credit / deposit (optional)"
+                          : field[0].toUpperCase() + field.slice(1)}
+                  </label>
                   <select
                     value={map[field] ?? ""}
                     onChange={(e) => setMap({ ...map, [field]: e.target.value === "" ? null : Number(e.target.value) })}
                   >
-                    <option value="">{field === "debit" ? "— none —" : "Choose…"}</option>
+                    <option value="">{field === "debit" || field === "credit" ? "— none —" : "Choose…"}</option>
                     {result.header?.map((h, i) => (
                       <option key={i} value={i}>
                         {h?.trim() || `Column ${i + 1}`}
@@ -206,13 +222,10 @@ export function ImportCsvButton() {
 
           {step === "preview" && result && (
             <>
-              <div className="fld">
-                <label>Account name</label>
-                <input type="text" value={account} onChange={(e) => setAccount(e.target.value)} required />
-              </div>
               <p style={{ marginBottom: 10 }}>
-                <strong>{result.fresh}</strong> new, <strong>{result.dupes}</strong> already imported,{" "}
-                <strong>{result.skips}</strong> skipped (deposits or unreadable rows).
+                Importing into <strong>{accountName}</strong> — <strong>{result.fresh}</strong> new (
+                {freshIn} in, {result.fresh - freshIn} out), <strong>{result.dupes}</strong> already imported,{" "}
+                <strong>{result.skips}</strong> skipped.
               </p>
               {result.fresh > 0 && (
                 <div className="fd-tw" style={{ maxHeight: 260, overflowY: "auto" }}>
@@ -221,35 +234,44 @@ export function ImportCsvButton() {
                       <tr>
                         <th>Date</th>
                         <th>Description</th>
+                        <th>Direction</th>
                         <th className="num">Amount</th>
                         <th>Suggested Category</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {result.items
-                        .filter((i) => i.status === "fresh")
-                        .map((i) => (
-                          <tr key={i.line}>
-                            <td>{i.date}</td>
-                            <td>{i.description}</td>
-                            <td className="num">{money2(i.amount ?? 0)}</td>
-                            <td>{i.guess ?? "—"}</td>
-                          </tr>
-                        ))}
+                      {freshItems.map((i) => (
+                        <tr key={i.line}>
+                          <td>{i.date}</td>
+                          <td>{i.description}</td>
+                          <td>
+                            <span className={`pill ${i.direction === "IN" ? "p-equity" : "p-draw"}`}>
+                              {i.direction === "IN" ? "In" : "Out"}
+                            </span>
+                          </td>
+                          <td className={`num ${i.direction === "IN" ? "pos" : ""}`}>
+                            {i.direction === "IN" ? "+" : "−"}
+                            {money2(i.amount ?? 0)}
+                          </td>
+                          <td>{i.guess ?? "—"}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
               )}
               <p className="hint" style={{ marginTop: 10 }}>
-                Imported rows land unassigned in the review queue — assign a property + subcategory and post them
-                from there. Suggested categories are a starting point, not applied automatically.
+                Check the direction column before importing — money out becomes an expense, money in becomes
+                property income, and both feed the account&apos;s balance. Imported rows land unassigned in the
+                review queue; suggested categories are a starting point, not applied automatically.
               </p>
             </>
           )}
 
-          {step === "done" && (
+          {step === "done" && imported && (
             <p className="ok">
-              Imported {importedCount} transaction{importedCount === 1 ? "" : "s"}.
+              Imported {imported.imported} transaction{imported.imported === 1 ? "" : "s"} into {accountName} —{" "}
+              {imported.moneyIn} in, {imported.moneyOut} out.
             </p>
           )}
 
@@ -265,7 +287,7 @@ export function ImportCsvButton() {
             </button>
           )}
           {step === "preview" && result && result.fresh > 0 && (
-            <button className="fd-btn" onClick={confirmImport} disabled={busy || !account.trim()}>
+            <button className="fd-btn" onClick={confirmImport} disabled={busy}>
               {busy ? "Importing…" : `Import ${result.fresh} Transaction${result.fresh === 1 ? "" : "s"}`}
             </button>
           )}

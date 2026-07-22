@@ -2,40 +2,50 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { IncomeCategory, TxnDirection } from "@prisma/client";
 import { money2 } from "@/lib/format";
+import { INCOME_CATEGORY_LABELS } from "@/lib/constants";
 
 interface BankRowProps {
   txn: {
     id: string;
     date: string;
     description: string;
-    account: string;
+    accountId: string;
+    accountName: string;
     amount: string;
+    direction: TxnDirection;
     propertyId: string | null;
     propertyAddress: string | null;
     subcategory: string | null;
     reconciled: boolean;
   };
   properties: { id: string; address: string }[];
+  accounts: { id: string; name: string }[];
   subcategories: string[];
 }
 
-export function BankRow({ txn, properties, subcategories }: BankRowProps) {
+export function BankRow({ txn, properties, accounts, subcategories }: BankRowProps) {
   const router = useRouter();
+  const isIn = txn.direction === TxnDirection.IN;
+
   const [propertyId, setPropertyId] = useState(txn.propertyId ?? "");
   const [subcategory, setSubcategory] = useState(txn.subcategory ?? "");
+  const [category, setCategory] = useState<IncomeCategory>(IncomeCategory.RENT);
   const [editing, setEditing] = useState(false);
   const [date, setDate] = useState(txn.date);
   const [description, setDescription] = useState(txn.description);
-  const [account, setAccount] = useState(txn.account);
+  const [accountId, setAccountId] = useState(txn.accountId);
+  const [direction, setDirection] = useState<TxnDirection>(txn.direction);
   const [amount, setAmount] = useState(txn.amount);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
 
   async function post() {
-    if (!propertyId || !subcategory) {
-      setError("Pick a property and subcategory first");
+    // Money out needs a budget subcategory; money in needs an income category.
+    if (!propertyId || (!isIn && !subcategory)) {
+      setError(isIn ? "Pick a property first" : "Pick a property and subcategory first");
       return;
     }
     setBusy(true);
@@ -44,7 +54,7 @@ export function BankRow({ txn, properties, subcategories }: BankRowProps) {
       const res = await fetch(`/api/bank/${txn.id}/post`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ propertyId, subcategory }),
+        body: JSON.stringify(isIn ? { propertyId, category } : { propertyId, subcategory }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Post failed");
       router.refresh();
@@ -62,7 +72,7 @@ export function BankRow({ txn, properties, subcategories }: BankRowProps) {
       const res = await fetch(`/api/bank/${txn.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, description, account, amount: Number(amount) }),
+        body: JSON.stringify({ date, description, accountId, direction, amount: Number(amount) }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Could not save");
       setEditing(false);
@@ -98,10 +108,26 @@ export function BankRow({ txn, properties, subcategories }: BankRowProps) {
           <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} />
         </td>
         <td>
-          <input type="text" value={account} onChange={(e) => setAccount(e.target.value)} style={{ minWidth: 100 }} />
+          <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className="sel-inline">
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </td>
+        <td>
+          <select
+            value={direction}
+            onChange={(e) => setDirection(e.target.value as TxnDirection)}
+            className="sel-inline"
+          >
+            <option value={TxnDirection.OUT}>Money Out</option>
+            <option value={TxnDirection.IN}>Money In</option>
+          </select>
         </td>
         <td colSpan={2} className="hint">
-          Property/subcategory assignment available after saving
+          Assign after saving
         </td>
         <td className="num">
           <input
@@ -131,7 +157,10 @@ export function BankRow({ txn, properties, subcategories }: BankRowProps) {
     <tr className={`recon-row${txn.reconciled ? " done" : ""}`}>
       <td>{txn.date}</td>
       <td>{txn.description}</td>
-      <td>{txn.account}</td>
+      <td>{txn.accountName}</td>
+      <td>
+        <span className={`pill ${isIn ? "p-equity" : "p-draw"}`}>{isIn ? "In" : "Out"}</span>
+      </td>
       <td>
         {txn.reconciled ? (
           txn.propertyAddress
@@ -148,7 +177,23 @@ export function BankRow({ txn, properties, subcategories }: BankRowProps) {
       </td>
       <td>
         {txn.reconciled ? (
-          txn.subcategory
+          isIn ? (
+            <span className="hint">income</span>
+          ) : (
+            txn.subcategory
+          )
+        ) : isIn ? (
+          <select
+            className="sel-inline"
+            value={category}
+            onChange={(e) => setCategory(e.target.value as IncomeCategory)}
+          >
+            {Object.values(IncomeCategory).map((c) => (
+              <option key={c} value={c}>
+                {INCOME_CATEGORY_LABELS[c]}
+              </option>
+            ))}
+          </select>
         ) : (
           <select className="sel-inline" value={subcategory} onChange={(e) => setSubcategory(e.target.value)}>
             <option value="">Choose…</option>
@@ -160,7 +205,10 @@ export function BankRow({ txn, properties, subcategories }: BankRowProps) {
           </select>
         )}
       </td>
-      <td className="num">{money2(Number(txn.amount))}</td>
+      <td className={`num ${isIn ? "pos" : ""}`}>
+        {isIn ? "+" : "−"}
+        {money2(Number(txn.amount))}
+      </td>
       <td>
         <div style={{ display: "flex", gap: 6 }}>
           {!txn.reconciled && (
@@ -188,11 +236,15 @@ export function BankRow({ txn, properties, subcategories }: BankRowProps) {
               <div className="fd-modal-b">
                 {txn.reconciled ? (
                   <p>
-                    This transaction is posted — deleting it will also delete the expense it created (
-                    {money2(Number(txn.amount))} at {txn.propertyAddress}, {txn.subcategory}).
+                    This transaction is posted — deleting it will also delete the{" "}
+                    {isIn ? "income" : "expense"} it created ({money2(Number(txn.amount))} at{" "}
+                    {txn.propertyAddress}).
                   </p>
                 ) : (
-                  <p>Delete the {txn.date} transaction &quot;{txn.description}&quot; ({money2(Number(txn.amount))})?</p>
+                  <p>
+                    Delete the {txn.date} transaction &quot;{txn.description}&quot; (
+                    {money2(Number(txn.amount))})? This changes the derived balance for {txn.accountName}.
+                  </p>
                 )}
               </div>
               <div className="fd-modal-f">

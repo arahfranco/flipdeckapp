@@ -20,41 +20,46 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const date = body.date ?? txn.date.toISOString().slice(0, 10);
   const description = body.description ?? txn.description;
   const amount = body.amount != null ? Number(body.amount) : txn.amount.toNumber();
-  const account = body.account ?? txn.account;
+  const accountId = body.accountId ?? txn.accountId;
+  const direction = body.direction ?? txn.direction;
 
-  const hash = importHash(date, amount, description);
+  const hash = importHash(accountId, date, amount, direction, description);
   const clashing = await db.bankTxn.findFirst({ where: { importHash: hash, id: { not: params.id } } });
   if (clashing) {
-    return NextResponse.json({ error: "A transaction with this date, amount, and description already exists" }, { status: 409 });
+    return NextResponse.json(
+      { error: "That account already has a transaction with this date, amount, direction, and description" },
+      { status: 409 }
+    );
   }
 
   const updated = await db.bankTxn.update({
     where: { id: params.id },
-    data: { date: new Date(date), description, amount, account, importHash: hash },
+    data: { date: new Date(date), description, amount, accountId, direction, importHash: hash },
   });
   return NextResponse.json(updated);
 }
 
 // Deleting a posted transaction is the dangerous operation (spec §5, §6e):
-// it already created an Expense that's inflating a property's actuals.
-// Deleting only the bank row would leave an orphaned expense and silently
-// wrong numbers, so the paired expense (found via the bankTxnId FK, not
-// field-matching like the prototype had to) is deleted in the same transaction.
+// it already created an Expense inflating a property's actuals, or an Income
+// inflating its receipts. Deleting only the bank row would leave that orphaned
+// and the numbers silently wrong, so the paired record (found via the
+// bankTxnId FK, not field-matching like the prototype had to) goes in the
+// same transaction.
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const guard = await requireAccess("bank");
   if ("error" in guard) return guard.error;
 
-  const txn = await db.bankTxn.findUnique({ where: { id: params.id }, include: { expense: true } });
+  const txn = await db.bankTxn.findUnique({
+    where: { id: params.id },
+    include: { expense: true, income: true },
+  });
   if (!txn) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (txn.expense) {
-    await db.$transaction([
-      db.expense.delete({ where: { id: txn.expense.id } }),
-      db.bankTxn.delete({ where: { id: params.id } }),
-    ]);
-  } else {
-    await db.bankTxn.delete({ where: { id: params.id } });
-  }
+  await db.$transaction([
+    ...(txn.expense ? [db.expense.delete({ where: { id: txn.expense.id } })] : []),
+    ...(txn.income ? [db.income.delete({ where: { id: txn.income.id } })] : []),
+    db.bankTxn.delete({ where: { id: params.id } }),
+  ]);
 
   return NextResponse.json({ ok: true });
 }

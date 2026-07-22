@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { TxnDirection } from "@prisma/client";
 import { requireAccess } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { importHash } from "@/lib/csvImport";
@@ -8,19 +9,29 @@ export async function POST(req: Request) {
   if ("error" in guard) return guard.error;
 
   const body = await req.json();
-  const { date, description, amount, account } = body;
-  if (!date || !description || amount == null || !account) {
+  const { date, description, amount, accountId } = body;
+  const direction: TxnDirection = body.direction ?? TxnDirection.OUT;
+
+  if (!date || !description || amount == null || !accountId) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
+  if (!Object.values(TxnDirection).includes(direction)) {
+    return NextResponse.json({ error: "Invalid direction" }, { status: 400 });
+  }
 
-  const hash = importHash(date, Number(amount), description);
+  // Amount is always stored POSITIVE — direction carries the sign.
+  const magnitude = Math.abs(Number(amount));
+  const hash = importHash(accountId, date, magnitude, direction, description);
   const existing = await db.bankTxn.findUnique({ where: { importHash: hash } });
   if (existing) {
-    return NextResponse.json({ error: "A transaction with this date, amount, and description already exists" }, { status: 409 });
+    return NextResponse.json(
+      { error: "That account already has a transaction with this date, amount, direction, and description" },
+      { status: 409 }
+    );
   }
 
   const txn = await db.bankTxn.create({
-    data: { date: new Date(date), description, amount, account, importHash: hash },
+    data: { date: new Date(date), description, amount: magnitude, direction, accountId, importHash: hash },
   });
   return NextResponse.json(txn, { status: 201 });
 }

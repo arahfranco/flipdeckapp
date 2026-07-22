@@ -75,33 +75,47 @@ describe("detectSign — spec §6b (Amex positive charges vs Chase negative debi
   });
 });
 
-describe("normAmount", () => {
+describe("normAmount — direction detection", () => {
   const map = detectColumns(["Date", "Description", "Amount"]);
 
-  it("treats negative as a debit when not flipped (bank-style)", () => {
-    expect(normAmount(["2026-07-01", "a", "-42.50"], map, false)).toBe(42.5);
+  it("treats negative as money OUT when not flipped (bank-style)", () => {
+    expect(normAmount(["2026-07-01", "a", "-42.50"], map, false)).toEqual({ amount: 42.5, direction: "OUT" });
   });
 
-  it("skips positive rows (deposits) when not flipped", () => {
-    expect(normAmount(["2026-07-01", "a", "42.50"], map, false)).toBeNull();
+  it("treats positive as money IN when not flipped — a deposit, no longer skipped", () => {
+    expect(normAmount(["2026-07-01", "a", "42.50"], map, false)).toEqual({ amount: 42.5, direction: "IN" });
   });
 
-  it("treats positive as a charge when flipped (card-style)", () => {
-    expect(normAmount(["2026-07-01", "a", "42.50"], map, true)).toBe(42.5);
+  it("treats positive as money OUT when flipped (card-style charge)", () => {
+    expect(normAmount(["2026-07-01", "a", "42.50"], map, true)).toEqual({ amount: 42.5, direction: "OUT" });
   });
 
-  it("skips negative rows (payments/credits) when flipped", () => {
-    expect(normAmount(["2026-07-01", "a", "-42.50"], map, true)).toBeNull();
+  it("treats negative as money IN when flipped (card payment/credit)", () => {
+    expect(normAmount(["2026-07-01", "a", "-42.50"], map, true)).toEqual({ amount: 42.5, direction: "IN" });
   });
 
   it("handles accounting-style negative parens", () => {
-    expect(normAmount(["2026-07-01", "a", "(42.50)"], map, false)).toBe(42.5);
+    expect(normAmount(["2026-07-01", "a", "(42.50)"], map, false)).toEqual({ amount: 42.5, direction: "OUT" });
   });
 
-  it("uses the debit column directly, ignoring sign detection entirely", () => {
-    const debitMap = detectColumns(["Date", "Description", "Debit", "Credit"]);
-    expect(normAmount(["2026-07-01", "a", "42.50", ""], debitMap, false)).toBe(42.5);
-    expect(normAmount(["2026-07-01", "a", "", "42.50"], debitMap, false)).toBeNull();
+  it("skips genuinely empty or zero amounts", () => {
+    expect(normAmount(["2026-07-01", "a", "0.00"], map, false)).toBeNull();
+    expect(normAmount(["2026-07-01", "a", ""], map, false)).toBeNull();
+  });
+
+  it("uses debit/credit columns to decide direction, ignoring sign detection", () => {
+    const dcMap = detectColumns(["Date", "Description", "Debit", "Credit"]);
+    expect(normAmount(["2026-07-01", "a", "42.50", ""], dcMap, false)).toEqual({ amount: 42.5, direction: "OUT" });
+    expect(normAmount(["2026-07-01", "a", "", "42.50"], dcMap, false)).toEqual({ amount: 42.5, direction: "IN" });
+    expect(normAmount(["2026-07-01", "a", "", ""], dcMap, false)).toBeNull();
+  });
+
+  it("regression: a wrong `flip` would invert direction and corrupt cash", () => {
+    // Same row, opposite flip → opposite direction. This is why detectSign()
+    // deciding from the data (spec §6b) matters more now than it used to.
+    const row = ["2026-07-01", "a", "-42.50"];
+    expect(normAmount(row, map, false)?.direction).toBe("OUT");
+    expect(normAmount(row, map, true)?.direction).toBe("IN");
   });
 });
 
@@ -112,6 +126,8 @@ describe("normDate", () => {
   it("returns empty string for garbage", () => expect(normDate("not a date")).toBe(""));
 });
 
+const ACCT = "acct_1";
+
 describe("buildImport — spec §6c/§6d end to end", () => {
   it("imports a Chase-style export correctly despite the Details/Description trap", () => {
     const csv = [
@@ -121,31 +137,69 @@ describe("buildImport — spec §6c/§6d end to end", () => {
       "CREDIT,07/05/2026,PAYROLL DEPOSIT,5000.00,ACH_CREDIT,19604.22",
     ].join("\n");
 
-    const result = buildImport(csv, new Set());
+    const result = buildImport(csv, ACCT, new Set());
     expect(result.needsMapping).toBeFalsy();
-    expect(result.fresh).toBe(2); // the deposit is skipped
-    expect(result.skips).toBe(1);
+    // All three now import — the deposit is kept as an IN row.
+    expect(result.fresh).toBe(3);
+    expect(result.skips).toBe(0);
+
     const first = result.items.find((i) => i.status === "fresh");
     // Must have picked "Description", not "Details" (which would read "DEBIT").
     expect(first?.description).toBe("HOME DEPOT #6832, FREMONT CA");
     expect(first?.description).not.toBe("DEBIT");
+
+    const deposit = result.items.find((i) => i.description === "PAYROLL DEPOSIT");
+    expect(deposit?.direction).toBe("IN");
+    expect(deposit?.amount).toBe(5000);
+    // Income is categorised at posting time, not guessed from the description.
+    expect(deposit?.guess).toBeNull();
   });
 
-  it("imports an Amex-style export (positive = charge) without silently dropping every row", () => {
-    const csv = ["Date,Description,Amount", "07/09/2026,SIERRA ROOFING SUPPLY,6420.00", "07/08/2026,HOME DEPOT,3184.22"].join(
-      "\n"
-    );
-    const result = buildImport(csv, new Set());
+  it("imports an Amex-style export (positive = charge) without inverting direction", () => {
+    const csv = [
+      "Date,Description,Amount",
+      "07/09/2026,SIERRA ROOFING SUPPLY,6420.00",
+      "07/08/2026,HOME DEPOT,3184.22",
+    ].join("\n");
+    const result = buildImport(csv, ACCT, new Set());
     expect(result.fresh).toBe(2);
     expect(result.skips).toBe(0);
+    // All-positive file → detectSign flips it → these are charges, not deposits.
+    expect(result.items.every((i) => i.direction === "OUT")).toBe(true);
   });
 
   it("flags re-imported rows as duplicates via the same key used for BankTxn.importHash", () => {
     const csv = ["Date,Description,Amount", "07/09/2026,HOME DEPOT,-100.00"].join("\n");
-    const existingHash = importHash("2026-07-09", 100, "HOME DEPOT");
-    const result = buildImport(csv, new Set([existingHash]));
+    const existingHash = importHash(ACCT, "2026-07-09", 100, "OUT", "HOME DEPOT");
+    const result = buildImport(csv, ACCT, new Set([existingHash]));
     expect(result.dupes).toBe(1);
     expect(result.fresh).toBe(0);
+  });
+
+  it("does NOT dedupe an inflow against an outflow of the same date/amount/description", () => {
+    // Without direction in the key these would collapse into one, silently
+    // dropping a real transaction. The leading negative row is deliberate: it
+    // makes detectSign treat this as a bank-style export (flip=false) so the
+    // positive TRANSFER row really is a deposit. An all-positive file would
+    // trip the Amex heuristic and be read as charges instead.
+    const outHash = importHash(ACCT, "2026-07-09", 100, "OUT", "TRANSFER");
+    const csv = [
+      "Date,Description,Amount",
+      "07/08/2026,SOME DEBIT,-50.00",
+      "07/09/2026,TRANSFER,100.00",
+    ].join("\n");
+    const result = buildImport(csv, ACCT, new Set([outHash]));
+
+    const transfer = result.items.find((i) => i.description === "TRANSFER");
+    expect(transfer?.status).toBe("fresh");
+    expect(transfer?.direction).toBe("IN");
+  });
+
+  it("does NOT dedupe the same statement imported into a different account", () => {
+    const otherAccountHash = importHash("acct_2", "2026-07-09", 100, "OUT", "HOME DEPOT");
+    const csv = ["Date,Description,Amount", "07/09/2026,HOME DEPOT,-100.00"].join("\n");
+    const result = buildImport(csv, ACCT, new Set([otherAccountHash]));
+    expect(result.fresh).toBe(1);
   });
 
   it("deduplicates within the same file, not just against existing rows", () => {
@@ -154,14 +208,26 @@ describe("buildImport — spec §6c/§6d end to end", () => {
       "07/09/2026,HOME DEPOT,-100.00",
       "07/09/2026,HOME DEPOT,-100.00",
     ].join("\n");
-    const result = buildImport(csv, new Set());
+    const result = buildImport(csv, ACCT, new Set());
     expect(result.fresh).toBe(1);
     expect(result.dupes).toBe(1);
   });
 
+  it("imports a debit/credit-column export with both directions", () => {
+    const csv = [
+      "Date,Description,Debit,Credit",
+      "07/09/2026,HOME DEPOT,100.00,",
+      "07/10/2026,RENT RECEIVED,,2200.00",
+    ].join("\n");
+    const result = buildImport(csv, ACCT, new Set());
+    expect(result.fresh).toBe(2);
+    expect(result.items.find((i) => i.description === "HOME DEPOT")?.direction).toBe("OUT");
+    expect(result.items.find((i) => i.description === "RENT RECEIVED")?.direction).toBe("IN");
+  });
+
   it("requests column mapping when headers aren't recognized", () => {
     const csv = ["Col1,Col2,Col3", "foo,bar,baz"].join("\n");
-    const result = buildImport(csv, new Set());
+    const result = buildImport(csv, ACCT, new Set());
     expect(result.needsMapping).toBe(true);
     expect(result.header).toEqual(["Col1", "Col2", "Col3"]);
   });

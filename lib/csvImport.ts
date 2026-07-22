@@ -90,28 +90,50 @@ export function normDate(s: unknown): string {
   return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
 }
 
-/** Money out is what we care about. Banks disagree on how to say it:
+export type TxnDirection = "IN" | "OUT";
+
+/** Both directions now matter — money out posts to an Expense, money in to an
+ *  Income, and together they derive cash on hand. Banks disagree on how to
+ *  say it:
  *  - one signed Amount column, debits negative   [Chase, most checking]
  *  - one Amount column, charges POSITIVE         [Amex and some card exports]
  *  - separate Debit / Credit columns              [BofA, many credit unions]
- *  `flip` is set per-file by detectSign() below.
- *  Returns a POSITIVE number for money leaving the account, or null to skip. */
-export function normAmount(row: string[], map: ColumnMap, flip: boolean): number | null {
+ *  `flip` is set per-file by detectSign() below. Getting `flip` wrong used to
+ *  mean importing zero rows; now it would INVERT every row and corrupt the
+ *  cash balance, so detectSign() matters more than ever.
+ *  Returns a POSITIVE amount plus its direction, or null to skip the row. */
+export function normAmount(
+  row: string[],
+  map: ColumnMap,
+  flip: boolean
+): { amount: number; direction: TxnDirection } | null {
   const strip = (v: unknown) => {
     let s = String(v == null ? "" : v).replace(/[$,\s]/g, "").trim();
     const m = s.match(/^\((.*)\)$/);
     if (m) s = "-" + m[1];
     return s;
   };
-  if (map.debit != null) {
-    const deb = parseFloat(strip(row[map.debit]));
-    if (!isNaN(deb) && deb !== 0) return Math.abs(deb);
-    return null; // credit / deposit -> not an expense
+
+  // Separate debit/credit columns: whichever one is populated decides the
+  // direction outright, so `flip` is irrelevant here.
+  if (map.debit != null || map.credit != null) {
+    if (map.debit != null) {
+      const deb = parseFloat(strip(row[map.debit]));
+      if (!isNaN(deb) && deb !== 0) return { amount: Math.abs(deb), direction: "OUT" };
+    }
+    if (map.credit != null) {
+      const cred = parseFloat(strip(row[map.credit]));
+      if (!isNaN(cred) && cred !== 0) return { amount: Math.abs(cred), direction: "IN" };
+    }
+    return null; // both blank/zero
   }
+
   const a = parseFloat(strip(map.amount != null ? row[map.amount] : undefined));
   if (isNaN(a) || a === 0) return null;
-  if (flip) return a > 0 ? a : null; // card export: positive = charge
-  return a < 0 ? Math.abs(a) : null; // bank export: negative = debit
+  // card export: positive = charge (OUT), negative = payment/credit (IN)
+  if (flip) return { amount: Math.abs(a), direction: a > 0 ? "OUT" : "IN" };
+  // bank export: negative = debit (OUT), positive = deposit (IN)
+  return { amount: Math.abs(a), direction: a < 0 ? "OUT" : "IN" };
 }
 
 /** If a signed-amount file contains no negative values at all, it's a
@@ -242,11 +264,22 @@ export function guessCategory(desc: string): string | null {
   return null;
 }
 
-/** Same date + same amount + same description = already imported. Matches
- * BankTxn.importHash's unique constraint exactly — same key, same order. */
-export function importHash(date: string, amount: number, description: string): string {
+/** Dedup key, matching BankTxn.importHash's unique constraint exactly — same
+ * fields, same order. `direction` is in the key so a deposit and a withdrawal
+ * that share a date/amount/description can't wrongly collapse into one, and
+ * `accountId` is in it so the same statement imported into two different
+ * accounts isn't treated as a duplicate. The backfill SQL in
+ * migrations/20260722000000_bank_money_in_out MUST produce byte-identical
+ * output — if it drifts, re-importing a statement silently duplicates it. */
+export function importHash(
+  accountId: string,
+  date: string,
+  amount: number,
+  direction: TxnDirection,
+  description: string
+): string {
   const normalized = description.trim().toLowerCase().replace(/\s+/g, " ");
-  return `${date}|${amount.toFixed(2)}|${normalized}`;
+  return `${accountId}|${date}|${amount.toFixed(2)}|${direction}|${normalized}`;
 }
 
 export interface ImportItem {
@@ -255,6 +288,7 @@ export interface ImportItem {
   date?: string;
   description?: string;
   amount?: number;
+  direction?: TxnDirection;
   guess?: string | null;
   skipReason?: string;
   raw?: string;
@@ -274,7 +308,12 @@ export interface ImportResult {
 
 /** Build the import preview: parsed rows, tagged as new / duplicate / skipped.
  * Does not touch the database — callers decide what to do with `items`. */
-export function buildImport(text: string, existingHashes: Set<string>, mapOverride?: ColumnMap): ImportResult {
+export function buildImport(
+  text: string,
+  accountId: string,
+  existingHashes: Set<string>,
+  mapOverride?: ColumnMap
+): ImportResult {
   const rows = parseCSV(text);
   if (!rows.length) {
     return { map: { date: null, desc: null, amount: null, debit: null, credit: null }, items: [], fresh: 0, dupes: 0, skips: 0, error: "That file is empty." };
@@ -285,7 +324,8 @@ export function buildImport(text: string, existingHashes: Set<string>, mapOverri
   const hasHeader = map.date != null && map.desc != null;
   const body = hasHeader ? rows.slice(1) : rows;
 
-  if (!hasHeader || (map.amount == null && map.debit == null)) {
+  // A credit-only column is now enough to import from — deposits count.
+  if (!hasHeader || (map.amount == null && map.debit == null && map.credit == null)) {
     return { needsMapping: true, header, sampleRows: rows.slice(1, 6), map, items: [], fresh: 0, dupes: 0, skips: 0 };
   }
 
@@ -297,24 +337,36 @@ export function buildImport(text: string, existingHashes: Set<string>, mapOverri
     const line = i + 2;
     const date = normDate(r[map.date!]);
     const description = String(r[map.desc!] == null ? "" : r[map.desc!]).trim();
-    const amount = normAmount(r, map, flip);
+    const parsed = normAmount(r, map, flip);
 
     if (!date || !description) {
       items.push({ line, status: "skip", skipReason: "Unreadable row", raw: r.join(" ") });
       return;
     }
-    if (amount == null) {
-      items.push({ line, status: "skip", skipReason: "Deposit or $0 — not an expense", raw: description });
+    // Deposits are no longer skipped — only genuinely empty/unparseable amounts.
+    if (parsed == null) {
+      items.push({ line, status: "skip", skipReason: "No amount ($0 or blank)", raw: description });
       return;
     }
+    const { amount, direction } = parsed;
 
-    const key = importHash(date, amount, description);
+    const key = importHash(accountId, date, amount, direction, description);
     if (existingHashes.has(key) || seen.has(key)) {
-      items.push({ line, status: "dupe", date, description, amount });
+      items.push({ line, status: "dupe", date, description, amount, direction });
       return;
     }
     seen.add(key);
-    items.push({ line, status: "fresh", date, description, amount, guess: guessCategory(description) });
+    items.push({
+      line,
+      status: "fresh",
+      date,
+      description,
+      amount,
+      direction,
+      // Category guessing is for expenses; a deposit gets categorised as
+      // income when it's posted, not here.
+      guess: direction === "OUT" ? guessCategory(description) : null,
+    });
   });
 
   return {

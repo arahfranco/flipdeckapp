@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function AddBankTxnButton() {
+interface Props {
+  accounts: { id: string; name: string }[];
+}
+
+export function AddBankTxnButton({ accounts }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -19,7 +23,8 @@ export function AddBankTxnButton() {
         body: JSON.stringify({
           date: formData.get("date"),
           description: formData.get("description"),
-          account: formData.get("account"),
+          accountId: formData.get("accountId"),
+          direction: formData.get("direction"),
           amount: Number(formData.get("amount")),
         }),
       });
@@ -35,7 +40,7 @@ export function AddBankTxnButton() {
 
   if (!open) {
     return (
-      <button className="fd-btn ghost sm" onClick={() => setOpen(true)}>
+      <button className="fd-btn ghost sm" onClick={() => setOpen(true)} disabled={accounts.length === 0}>
         + Add Transaction
       </button>
     );
@@ -63,10 +68,29 @@ export function AddBankTxnButton() {
               <label>Description</label>
               <input type="text" name="description" required />
             </div>
-            <div className="fld">
-              <label>Account</label>
-              <input type="text" name="account" required placeholder="Chase •4471" />
+            <div className="fld-row">
+              <div className="fld">
+                <label>Account</label>
+                <select name="accountId" required defaultValue={accounts[0]?.id ?? ""}>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="fld">
+                <label>Direction</label>
+                <select name="direction" defaultValue="OUT">
+                  <option value="OUT">Money Out</option>
+                  <option value="IN">Money In</option>
+                </select>
+              </div>
             </div>
+            <p className="hint">
+              Enter the amount as a positive number — the direction carries the sign. Money out posts to an
+              expense, money in posts to property income.
+            </p>
             {error && <p className="err">{error}</p>}
           </div>
           <div className="fd-modal-f">

@@ -1,4 +1,4 @@
-import { PrismaClient, Role, Status, ExpenseStatus, ContribKind } from "@prisma/client";
+import { PrismaClient, Role, Status, ExpenseStatus, ContribKind, TxnDirection } from "@prisma/client";
 import { importHash } from "../lib/csvImport";
 
 const prisma = new PrismaClient();
@@ -183,7 +183,9 @@ async function main() {
   // Expense/BankTxn/PayrollEntry/Contribution have no natural unique key in the
   // seed data, so clear them before re-inserting to keep `npm run db:seed` idempotent.
   await prisma.expense.deleteMany({});
+  await prisma.income.deleteMany({});
   await prisma.bankTxn.deleteMany({});
+  await prisma.bankAccount.deleteMany({});
   await prisma.payrollEntry.deleteMany({});
   await prisma.contribution.deleteMany({});
 
@@ -203,17 +205,29 @@ async function main() {
     await prisma.expense.create({ data: { ...e, date: new Date(e.date) } });
   }
 
+  // Opening balance is the cash that existed before the first imported row —
+  // the derived balance is this plus money in, minus money out.
+  const chase = await prisma.bankAccount.create({
+    data: { name: "Chase •4471", openingBalance: 250000 },
+  });
+
   const bank = [
-    { date: "2026-07-09", description: "HOME DEPOT #6832 FREMONT CA", amount: 3184.22, account: "Chase •4471", propertyId: null, subcategory: null, reconciled: false },
-    { date: "2026-07-08", description: "SIERRA ROOFING SUPPLY", amount: 6420.0, account: "Chase •4471", propertyId: null, subcategory: null, reconciled: false },
-    { date: "2026-07-07", description: "ACH DEBIT — PG&E UTILITY", amount: 412.88, account: "Chase •4471", propertyId: null, subcategory: null, reconciled: false },
-    { date: "2026-07-06", description: "CHECK 1042 — M. TORRES", amount: 2880.0, account: "Chase •4471", propertyId: null, subcategory: null, reconciled: false },
-    { date: "2026-07-02", description: "WIRE OUT — FIRST AMERICAN TITLE", amount: 6820.0, account: "Chase •4471", propertyId: "p1", subcategory: "Title & Escrow", reconciled: true },
-    { date: "2026-06-28", description: "BAY AREA ELECTRIC LLC", amount: 26750.0, account: "Chase •4471", propertyId: "p1", subcategory: "Electrical", reconciled: true },
+    { date: "2026-07-10", description: "DEPOSIT — PARTNER WIRE", amount: 75000.0, direction: TxnDirection.IN, propertyId: null, subcategory: null, reconciled: false },
+    { date: "2026-07-09", description: "HOME DEPOT #6832 FREMONT CA", amount: 3184.22, direction: TxnDirection.OUT, propertyId: null, subcategory: null, reconciled: false },
+    { date: "2026-07-08", description: "SIERRA ROOFING SUPPLY", amount: 6420.0, direction: TxnDirection.OUT, propertyId: null, subcategory: null, reconciled: false },
+    { date: "2026-07-07", description: "ACH DEBIT — PG&E UTILITY", amount: 412.88, direction: TxnDirection.OUT, propertyId: null, subcategory: null, reconciled: false },
+    { date: "2026-07-06", description: "CHECK 1042 — M. TORRES", amount: 2880.0, direction: TxnDirection.OUT, propertyId: null, subcategory: null, reconciled: false },
+    { date: "2026-07-02", description: "WIRE OUT — FIRST AMERICAN TITLE", amount: 6820.0, direction: TxnDirection.OUT, propertyId: "p1", subcategory: "Title & Escrow", reconciled: true },
+    { date: "2026-06-28", description: "BAY AREA ELECTRIC LLC", amount: 26750.0, direction: TxnDirection.OUT, propertyId: "p1", subcategory: "Electrical", reconciled: true },
   ];
   for (const b of bank) {
     await prisma.bankTxn.create({
-      data: { ...b, date: new Date(b.date), importHash: importHash(b.date, b.amount, b.description) },
+      data: {
+        ...b,
+        date: new Date(b.date),
+        accountId: chase.id,
+        importHash: importHash(chase.id, b.date, b.amount, b.direction, b.description),
+      },
     });
   }
 

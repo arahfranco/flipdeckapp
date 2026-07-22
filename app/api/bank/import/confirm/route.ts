@@ -9,14 +9,17 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   const csvText: string = body.csvText ?? "";
+  const accountId: string = body.accountId ?? "";
   const map: ColumnMap | undefined = body.map;
-  const account: string = typeof body.account === "string" ? body.account.trim() : "";
-  if (!account) return NextResponse.json({ error: "Account name is required" }, { status: 400 });
 
-  const existing = await db.bankTxn.findMany({ select: { importHash: true } });
+  if (!accountId) return NextResponse.json({ error: "Pick an account first" }, { status: 400 });
+  const account = await db.bankAccount.findUnique({ where: { id: accountId } });
+  if (!account) return NextResponse.json({ error: "Account not found" }, { status: 404 });
+
+  const existing = await db.bankTxn.findMany({ where: { accountId }, select: { importHash: true } });
   const existingHashes = new Set(existing.map((e) => e.importHash));
 
-  const result = buildImport(csvText, existingHashes, map);
+  const result = buildImport(csvText, accountId, existingHashes, map);
   if (result.needsMapping || result.error) {
     return NextResponse.json({ error: "Could not parse this file — request a preview first" }, { status: 400 });
   }
@@ -27,11 +30,16 @@ export async function POST(req: Request) {
       date: new Date(i.date!),
       description: i.description!,
       amount: i.amount!,
-      account,
-      importHash: importHash(i.date!, i.amount!, i.description!),
+      direction: i.direction!,
+      accountId,
+      importHash: importHash(accountId, i.date!, i.amount!, i.direction!, i.description!),
     })),
     skipDuplicates: true, // DB-level backstop on the importHash unique constraint
   });
 
-  return NextResponse.json({ imported: created.count });
+  return NextResponse.json({
+    imported: created.count,
+    moneyIn: fresh.filter((i) => i.direction === "IN").length,
+    moneyOut: fresh.filter((i) => i.direction === "OUT").length,
+  });
 }

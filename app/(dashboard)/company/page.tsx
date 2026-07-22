@@ -4,8 +4,8 @@ import { computeNetWorth } from "@/lib/networth";
 import { money, money2 } from "@/lib/format";
 import { STATUS_LABELS, STATUS_TONE } from "@/lib/constants";
 import { Prisma, ContribKind } from "@prisma/client";
-import { CashAccountRow } from "@/components/CashAccountRow";
-import { AddCashAccountButton } from "@/components/AddCashAccountButton";
+import { BankAccountRow } from "@/components/BankAccountRow";
+import { AddBankAccountButton } from "@/components/AddBankAccountButton";
 import { LiabilityRow } from "@/components/LiabilityRow";
 import { AddLiabilityButton } from "@/components/AddLiabilityButton";
 
@@ -14,13 +14,13 @@ export default async function CompanyValuePage() {
   // which spec §4 deliberately keeps away from Bookkeepers.
   await requireAccessPage("partners");
 
-  const [properties, liabilities, cashAccounts, partners] = await Promise.all([
+  const [properties, liabilities, bankAccounts, partners] = await Promise.all([
     db.property.findMany({
       include: { budget: true, expenses: true, payroll: true },
       orderBy: { address: "asc" },
     }),
     db.liability.findMany({ include: { property: true }, orderBy: { balance: "desc" } }),
-    db.cashAccount.findMany({ orderBy: { name: "asc" } }),
+    db.bankAccount.findMany({ include: { transactions: true }, orderBy: { name: "asc" } }),
     db.partner.findMany({ include: { contributions: true }, orderBy: { name: "asc" } }),
   ]);
 
@@ -28,7 +28,10 @@ export default async function CompanyValuePage() {
     p.contributions.map((c) => ({ partnerId: c.partnerId, kind: c.kind, amount: c.amount }))
   );
 
-  const nw = computeNetWorth(properties, liabilities, cashAccounts, contributions);
+  const nw = computeNetWorth(properties, liabilities, bankAccounts, contributions);
+
+  // Deletion is blocked while an account still has transactions — surfaced per row.
+  const txnCounts = new Map(bankAccounts.map((a) => [a.id, a.transactions.length]));
 
   const heldProperties = properties.filter((p) => p.status !== "SOLD");
 
@@ -41,7 +44,7 @@ export default async function CompanyValuePage() {
           <div className="fd-sub">Assets − liabilities across the portfolio. Equity = what the company is worth.</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <AddCashAccountButton />
+          <AddBankAccountButton />
           <AddLiabilityButton properties={heldProperties.map((p) => ({ id: p.id, address: p.address }))} />
         </div>
       </header>
@@ -132,32 +135,51 @@ export default async function CompanyValuePage() {
             <thead>
               <tr>
                 <th>Account</th>
+                <th className="num">Opening</th>
+                <th className="num">Money In</th>
+                <th className="num">Money Out</th>
                 <th className="num">Balance</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {cashAccounts.length === 0 && (
+              {nw.accounts.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="empty">
-                    No cash accounts yet. Add one to include cash in company value.
+                  <td colSpan={6} className="empty">
+                    No bank accounts yet. Add one, then import or enter transactions on the Money In &amp; Out
+                    page — the balance is derived from them.
                   </td>
                 </tr>
               )}
-              {cashAccounts.map((a) => (
-                <CashAccountRow
+              {nw.accounts.map((a) => (
+                <BankAccountRow
                   key={a.id}
                   account={{
                     id: a.id,
                     name: a.name,
+                    openingBalance: a.openingBalance.toString(),
+                    moneyIn: a.moneyIn.toString(),
+                    moneyOut: a.moneyOut.toString(),
                     balance: a.balance.toString(),
-                    notes: a.notes,
-                    updatedAt: a.updatedAt.toISOString().slice(0, 10),
+                    txnCount: txnCounts.get(a.id) ?? 0,
                   }}
                 />
               ))}
+              {nw.accounts.length > 1 && (
+                <tr className="grp">
+                  <td colSpan={4}>Total Cash on Hand</td>
+                  <td className="num">{money2(nw.cash)}</td>
+                  <td></td>
+                </tr>
+              )}
             </tbody>
           </table>
+        </div>
+        <div className="fd-card-b" style={{ borderTop: "1px solid var(--rule-2)" }}>
+          <p className="hint">
+            Balances are derived — opening balance + money in − money out. Only the opening balance is editable,
+            so the figure here can never drift from the transactions behind it.
+          </p>
         </div>
       </div>
 

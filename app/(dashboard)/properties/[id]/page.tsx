@@ -5,7 +5,16 @@ import { requireAccessPage } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { computeProperty } from "@/lib/calc";
 import { money, money2, pct } from "@/lib/format";
-import { CAN_SEE, CATEGORIES, COST_CATEGORIES, STATUS_LABELS, STATUS_TONE, EXPENSE_STATUS_LABELS } from "@/lib/constants";
+import {
+  CAN_SEE,
+  CATEGORIES,
+  COST_CATEGORIES,
+  STATUS_LABELS,
+  STATUS_TONE,
+  EXPENSE_STATUS_LABELS,
+  INCOME_CATEGORY_LABELS,
+} from "@/lib/constants";
+import { Prisma } from "@prisma/client";
 import { DeletePropertyButton } from "@/components/DeletePropertyButton";
 import { EditPropertyButton } from "@/components/EditPropertyButton";
 import { BudgetLineRow } from "@/components/BudgetLineRow";
@@ -35,6 +44,7 @@ export default async function PropertyDetailPage({
     include: {
       budget: true,
       expenses: { orderBy: { date: "desc" } },
+      income: { orderBy: { date: "desc" } },
       payroll: { include: { worker: true }, orderBy: { date: "desc" } },
       contributions: { include: { partner: true }, orderBy: { date: "desc" } },
     },
@@ -48,6 +58,7 @@ export default async function PropertyDetailPage({
   const activeTab: Tab = tabs.includes(requested) ? requested : tabs[0];
 
   const result = computeProperty(property.budget, property.expenses, property.payroll);
+  const totalIncome = property.income.reduce((s, i) => s.plus(i.amount), new Prisma.Decimal(0));
 
   return (
     <>
@@ -208,7 +219,7 @@ export default async function PropertyDetailPage({
       )}
 
       {activeTab === "expenses" && (
-        <div className="fd-card">
+        <div className="fd-card" style={{ marginBottom: 22 }}>
           <div className="fd-card-h">
             <h3>Expenses Log</h3>
           </div>
@@ -244,6 +255,55 @@ export default async function PropertyDetailPage({
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "expenses" && (
+        <div className="fd-card">
+          <div className="fd-card-h">
+            <h3>Income Log</h3>
+          </div>
+          <div className="fd-tw">
+            <table className="fd-t">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Category</th>
+                  <th className="num">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {property.income.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="empty">
+                      No income recorded. Post a money-in transaction to this property from Money In &amp; Out.
+                    </td>
+                  </tr>
+                )}
+                {property.income.map((i) => (
+                  <tr key={i.id}>
+                    <td>{i.date.toISOString().slice(0, 10)}</td>
+                    <td>{i.description}</td>
+                    <td>{INCOME_CATEGORY_LABELS[i.category]}</td>
+                    <td className="num pos">{money2(i.amount)}</td>
+                  </tr>
+                ))}
+                {property.income.length > 0 && (
+                  <tr className="grp">
+                    <td colSpan={3}>Total Income Received</td>
+                    <td className="num">{money2(totalIncome)}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="fd-card-b" style={{ borderTop: "1px solid var(--rule-2)" }}>
+            <p className="hint">
+              Income is money actually received against this property. It sits outside the cost rollup above —
+              the profit figures on the Dashboard tab are based on sale price versus cost, not on this log.
+            </p>
           </div>
         </div>
       )}

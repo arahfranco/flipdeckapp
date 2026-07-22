@@ -9,7 +9,7 @@ const NAV_ITEMS: { section: Section; label: string; href: string }[] = [
   { section: "portfolio", label: "Portfolio", href: "/" },
   { section: "properties", label: "Properties", href: "/properties" },
   { section: "expenses", label: "Expenses", href: "/expenses" },
-  { section: "bank", label: "Bank", href: "/bank" },
+  { section: "bank", label: "Money In & Out", href: "/bank" },
   { section: "payroll", label: "Payroll", href: "/payroll" },
   { section: "partners", label: "Capital", href: "/partners" },
   // Same "partners" gate — the balance sheet exposes equity positions, which

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function AddCashAccountButton() {
+export function AddBankAccountButton() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -13,10 +13,13 @@ export function AddCashAccountButton() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/cash-accounts", {
+      const res = await fetch("/api/bank-accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: formData.get("name"), balance: Number(formData.get("balance")) }),
+        body: JSON.stringify({
+          name: formData.get("name"),
+          openingBalance: formData.get("openingBalance"),
+        }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Could not add account");
       setOpen(false);
@@ -31,7 +34,7 @@ export function AddCashAccountButton() {
   if (!open) {
     return (
       <button className="fd-btn ghost sm" onClick={() => setOpen(true)}>
-        + Cash Account
+        + Bank Account
       </button>
     );
   }
@@ -40,7 +43,7 @@ export function AddCashAccountButton() {
     <div className="fd-mask" onClick={() => !busy && setOpen(false)}>
       <div className="fd-modal" onClick={(e) => e.stopPropagation()}>
         <div className="fd-modal-h">
-          <h3>Add Cash Account</h3>
+          <h3>Add Bank Account</h3>
         </div>
         <form action={submit}>
           <div className="fd-modal-b">
@@ -49,11 +52,12 @@ export function AddCashAccountButton() {
               <input type="text" name="name" required placeholder="Chase Operating •4471" />
             </div>
             <div className="fld">
-              <label>Current Balance</label>
-              <input type="number" name="balance" step="0.01" required />
+              <label>Opening Balance</label>
+              <input type="number" name="openingBalance" step="0.01" defaultValue={0} />
               <p className="hint">
-                Balances are maintained by hand — bank transactions only record money out, so cash can&apos;t be
-                derived automatically.
+                Leave at 0 if you&apos;ll import the full transaction history — the balance is calculated as
+                opening + deposits − withdrawals. Set it to a known starting balance if you only import from a
+                certain date onward.
               </p>
             </div>
             {error && <p className="err">{error}</p>}

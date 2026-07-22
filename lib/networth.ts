@@ -1,4 +1,4 @@
-import { Prisma, Status, ContribKind } from "@prisma/client";
+import { Prisma, Status, ContribKind, TxnDirection } from "@prisma/client";
 import { computeProperty, type BudgetLineInput, type ExpenseInput, type PayrollInput } from "./calc";
 
 type Decimal = Prisma.Decimal;
@@ -26,10 +26,44 @@ export interface LiabilityInput {
   propertyId: string | null;
 }
 
-export interface CashAccountInput {
+export interface BankAccountInput {
   id: string;
   name: string;
+  /** 0 when starting from zero and importing full history */
+  openingBalance: Decimal;
+  transactions: { amount: Decimal; direction: TxnDirection }[];
+}
+
+export interface BankAccountBalance {
+  id: string;
+  name: string;
+  openingBalance: Decimal;
+  moneyIn: Decimal;
+  moneyOut: Decimal;
+  /** openingBalance + in − out; derived, never stored */
   balance: Decimal;
+}
+
+/**
+ * Derived so the balance can't drift from the transactions behind it. With
+ * openingBalance 0 this is only right once the full history is imported —
+ * that's the deliberate trade-off of starting from zero.
+ */
+export function accountBalance(account: BankAccountInput): BankAccountBalance {
+  const moneyIn = account.transactions
+    .filter((t) => t.direction === TxnDirection.IN)
+    .reduce((s, t) => s.plus(t.amount), new Decimal(0));
+  const moneyOut = account.transactions
+    .filter((t) => t.direction === TxnDirection.OUT)
+    .reduce((s, t) => s.plus(t.amount), new Decimal(0));
+  return {
+    id: account.id,
+    name: account.name,
+    openingBalance: account.openingBalance,
+    moneyIn,
+    moneyOut,
+    balance: account.openingBalance.plus(moneyIn).minus(moneyOut),
+  };
 }
 
 export interface ContributionInput {
@@ -53,6 +87,7 @@ export interface PropertyValuation {
 export interface NetWorth {
   properties: PropertyValuation[];
   propertyValue: Decimal;
+  accounts: BankAccountBalance[];
   cash: Decimal;
   totalAssets: Decimal;
   outsideDebt: Decimal;
@@ -74,7 +109,7 @@ const isHeld = (status: Status) => status !== Status.SOLD;
 export function computeNetWorth(
   properties: PropertyInput[],
   liabilities: LiabilityInput[],
-  cashAccounts: CashAccountInput[],
+  bankAccounts: BankAccountInput[],
   contributions: ContributionInput[]
 ): NetWorth {
   const held = properties.filter((p) => isHeld(p.status));
@@ -94,7 +129,8 @@ export function computeNetWorth(
   });
 
   const propertyValue = valuations.reduce((s, v) => s.plus(v.value), new Decimal(0));
-  const cash = cashAccounts.reduce((s, a) => s.plus(a.balance), new Decimal(0));
+  const accounts = bankAccounts.map(accountBalance);
+  const cash = accounts.reduce((s, a) => s.plus(a.balance), new Decimal(0));
   const totalAssets = propertyValue.plus(cash);
 
   const outsideDebt = liabilities.reduce((s, l) => s.plus(l.balance), new Decimal(0));
@@ -118,6 +154,7 @@ export function computeNetWorth(
   return {
     properties: valuations,
     propertyValue,
+    accounts,
     cash,
     totalAssets,
     outsideDebt,

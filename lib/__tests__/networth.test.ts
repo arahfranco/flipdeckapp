@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { Prisma, Status, ContribKind } from "@prisma/client";
+import { Prisma, Status, ContribKind, TxnDirection } from "@prisma/client";
 import {
   computeNetWorth,
+  accountBalance,
   type PropertyInput,
   type LiabilityInput,
-  type CashAccountInput,
+  type BankAccountInput,
   type ContributionInput,
 } from "../networth";
 import type { BudgetLineInput } from "../calc";
@@ -96,11 +97,71 @@ describe("computeNetWorth — liabilities", () => {
   });
 });
 
+describe("accountBalance — derived cash", () => {
+  it("nets deposits against withdrawals on top of the opening balance", () => {
+    const b = accountBalance({
+      id: "a1",
+      name: "Operating",
+      openingBalance: D(1000),
+      transactions: [
+        { amount: D(5000), direction: TxnDirection.IN },
+        { amount: D(1200), direction: TxnDirection.OUT },
+        { amount: D(300), direction: TxnDirection.OUT },
+      ],
+    });
+    expect(b.moneyIn.toNumber()).toBe(5000);
+    expect(b.moneyOut.toNumber()).toBe(1500);
+    expect(b.balance.toNumber()).toBe(4500); // 1000 + 5000 − 1500
+  });
+
+  it("starting from zero, balance is simply deposits minus withdrawals", () => {
+    const b = accountBalance({
+      id: "a1",
+      name: "Operating",
+      openingBalance: D(0),
+      transactions: [
+        { amount: D(2200), direction: TxnDirection.IN },
+        { amount: D(700), direction: TxnDirection.OUT },
+      ],
+    });
+    expect(b.balance.toNumber()).toBe(1500);
+  });
+
+  it("goes negative when withdrawals exceed deposits rather than clamping", () => {
+    const b = accountBalance({
+      id: "a1",
+      name: "Operating",
+      openingBalance: D(0),
+      transactions: [{ amount: D(900), direction: TxnDirection.OUT }],
+    });
+    expect(b.balance.toNumber()).toBe(-900);
+  });
+
+  it("an account with no transactions is just its opening balance", () => {
+    const b = accountBalance({ id: "a1", name: "New", openingBalance: D(250), transactions: [] });
+    expect(b.balance.toNumber()).toBe(250);
+  });
+});
+
 describe("computeNetWorth — equity and totals", () => {
   it("company equity equals total assets minus total liabilities", () => {
-    const cash: CashAccountInput[] = [
-      { id: "c1", name: "Operating", balance: D(50000) },
-      { id: "c2", name: "Reserve", balance: D(20000) },
+    // 50k and 20k derived from transactions rather than typed in.
+    const cash: BankAccountInput[] = [
+      {
+        id: "c1",
+        name: "Operating",
+        openingBalance: D(0),
+        transactions: [
+          { amount: D(60000), direction: TxnDirection.IN },
+          { amount: D(10000), direction: TxnDirection.OUT },
+        ],
+      },
+      {
+        id: "c2",
+        name: "Reserve",
+        openingBalance: D(20000),
+        transactions: [],
+      },
     ];
     const liabilities: LiabilityInput[] = [{ id: "l1", name: "Anchor", balance: D(300000), propertyId: "p1" }];
     const contributions: ContributionInput[] = [{ partnerId: "a1", kind: ContribKind.LOAN, amount: D(100000) }];
