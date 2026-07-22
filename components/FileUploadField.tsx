@@ -27,8 +27,16 @@ export function FileUploadField({ kind, value, onUploaded, label = "File" }: Pro
       if (!setupRes.ok) throw new Error((await setupRes.json()).error ?? "Could not start upload");
       const { uploadUrl, publicUrl } = await setupRes.json();
 
-      const putRes = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-      if (!putRes.ok) throw new Error("Upload failed");
+      // A bucket with no CORS rule for this origin rejects the browser's
+      // preflight, which surfaces here as an opaque TypeError rather than a
+      // status code — worth naming, since the fix is bucket config, not code.
+      let putRes: Response;
+      try {
+        putRes = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      } catch {
+        throw new Error("Storage rejected the upload from this browser — the bucket needs a CORS rule for this site.");
+      }
+      if (!putRes.ok) throw new Error(`Upload failed (${putRes.status} from storage)`);
 
       onUploaded(publicUrl);
     } catch (err) {
