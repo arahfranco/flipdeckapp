@@ -10,3 +10,6 @@ R2-VALUES.txt
 next-env.d.ts
 .vercel
 .claude/scheduled_tasks.lock
+
+.vercel
+.env*

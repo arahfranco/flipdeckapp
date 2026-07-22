@@ -21,7 +21,7 @@ export const SUBS_BY_CAT: Record<Category, string[]> = {
     "Electrical", "Plumbing", "HVAC", "Insulation", "Drywall", "Interior Doors", "Trim & Millwork",
     "Interior Paint", "Exterior Paint", "Flooring", "Tile", "Kitchen Cabinets", "Countertops", "Appliances",
     "Bathroom Fixtures", "Lighting", "Hardware", "Landscaping", "Fencing", "Driveway & Concrete",
-    "Permits & Inspections", "Dumpster & Cleanup", "Contingency",
+    "Permits & Inspections", "Dumpster & Cleanup", "Building Materials", "Miscellaneous and Permits", "Contingency",
     // "Labor (Payroll)" is derived from PayrollEntry sums, not user-editable — see calc.ts.
   ],
   "Holding Costs": ["Loan Interest", "Property Tax", "Insurance", "Utilities", "HOA Dues", "Security & Maintenance"],
