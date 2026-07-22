@@ -15,7 +15,7 @@ export default async function LoginPage({
 
   const company = await db.company.findFirst();
   const appName = company?.appName ?? "Flipdeck";
-  const subtitle = `${company?.name ?? "Foundational Real Estate"}${company?.tagline ? ` — ${company.tagline}` : ""}`;
+  const subtitle = `${company?.name ?? "Flipdeck"}${company?.tagline ? ` — ${company.tagline}` : ""}`;
 
   // After a successful send we redirect here with ?sent=1 and show a clear
   // "check your email" confirmation, rather than bouncing to "/" (which has
