@@ -19,6 +19,8 @@ interface Props {
     stories: number;
     status: Status;
     photoUrl: string | null;
+    marketValue: string | null;
+    monthlyRent: string | null;
   };
 }
 
@@ -46,6 +48,8 @@ export function EditPropertyButton({ property }: Props) {
           lotSize: Number(formData.get("lotSize")),
           stories: Number(formData.get("stories")),
           status: formData.get("status"),
+          marketValue: formData.get("marketValue"),
+          monthlyRent: formData.get("monthlyRent"),
           photoUrl,
         }),
       });
@@ -123,6 +127,31 @@ export function EditPropertyButton({ property }: Props) {
                     </option>
                   ))}
                 </select>
+              </div>
+            </div>
+            <div className="fld-row">
+              <div className="fld">
+                <label>Market Value</label>
+                <input
+                  type="number"
+                  name="marketValue"
+                  step="0.01"
+                  min="0"
+                  defaultValue={property.marketValue ?? ""}
+                  placeholder="Current ARV"
+                />
+                <p className="hint">Leave blank to use the estimated Sale Price on the Company Value dashboard.</p>
+              </div>
+              <div className="fld">
+                <label>Monthly Rent</label>
+                <input
+                  type="number"
+                  name="monthlyRent"
+                  step="0.01"
+                  min="0"
+                  defaultValue={property.monthlyRent ?? ""}
+                  placeholder="If rented"
+                />
               </div>
             </div>
             <FileUploadField kind="property-photo" value={photoUrl} onUploaded={setPhotoUrl} label="Photo" />

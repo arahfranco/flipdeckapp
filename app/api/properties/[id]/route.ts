@@ -12,6 +12,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   for (const key of ["address", "mls", "type", "beds", "baths", "sqft", "lotSize", "stories", "photoUrl"]) {
     if (key in body) data[key] = body[key];
   }
+  // Balance-sheet fields: empty string means "clear it" (fall back to the
+  // estimated sale price / no rent), so normalize those to null.
+  for (const key of ["marketValue", "monthlyRent"]) {
+    if (key in body) data[key] = body[key] === "" || body[key] == null ? null : Number(body[key]);
+  }
   if (body.status) {
     if (!Object.values(Status).includes(body.status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });

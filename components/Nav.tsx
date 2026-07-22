@@ -12,6 +12,9 @@ const NAV_ITEMS: { section: Section; label: string; href: string }[] = [
   { section: "bank", label: "Bank", href: "/bank" },
   { section: "payroll", label: "Payroll", href: "/payroll" },
   { section: "partners", label: "Capital", href: "/partners" },
+  // Same "partners" gate — the balance sheet exposes equity positions, which
+  // spec §4 keeps away from Bookkeepers.
+  { section: "partners", label: "Company Value", href: "/company" },
 ];
 
 interface NavProps {

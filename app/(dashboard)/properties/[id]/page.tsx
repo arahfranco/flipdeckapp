@@ -85,6 +85,8 @@ export default async function PropertyDetailPage({
                 stories: property.stories,
                 status: property.status,
                 photoUrl: property.photoUrl,
+                marketValue: property.marketValue?.toString() ?? null,
+                monthlyRent: property.monthlyRent?.toString() ?? null,
               }}
             />
             <DeletePropertyButton propertyId={property.id} address={property.address} />
