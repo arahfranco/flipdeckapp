@@ -26,8 +26,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid kind" }, { status: 400 });
   }
 
-  if (!process.env.R2_ACCOUNT_ID || !process.env.R2_BUCKET_NAME) {
-    return NextResponse.json({ error: "File storage is not configured yet" }, { status: 503 });
+  // All five are needed. Checking only two let a half-configured deployment
+  // past this point and fail later with an opaque signing error instead.
+  // Names only — never echo the values back to the client.
+  const missing = [
+    "R2_ACCOUNT_ID",
+    "R2_ACCESS_KEY_ID",
+    "R2_SECRET_ACCESS_KEY",
+    "R2_BUCKET_NAME",
+    "R2_PUBLIC_URL",
+  ].filter((k) => !(process.env[k] ?? "").trim());
+
+  if (missing.length > 0) {
+    return NextResponse.json(
+      { error: `File storage is not configured — missing ${missing.join(", ")}` },
+      { status: 503 }
+    );
   }
 
   try {
