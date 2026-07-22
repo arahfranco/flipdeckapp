@@ -82,6 +82,8 @@ export interface PropertyValuation {
   valueIsEstimated: boolean;
   costBasis: Decimal;
   unrealizedGain: Decimal;
+  /** Whatever is stored on the property; only counts toward rental income when RENTED. */
+  monthlyRent: Decimal | null;
 }
 
 export interface NetWorth {
@@ -127,6 +129,7 @@ export function computeNetWorth(
       valueIsEstimated: p.marketValue == null,
       costBasis: rollup.totalActCost,
       unrealizedGain: value.minus(rollup.totalActCost),
+      monthlyRent: p.monthlyRent,
     };
   });
 

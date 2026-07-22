@@ -95,6 +95,8 @@
 .s-contract{background:#E4EDF4;color:#2F4858;}
 .s-rehab{background:#F7E6DA;color:#8F441C;}
 .s-rented{background:#D9E9EA;color:#1F5B60;}
+/* Rent shown beside a Rented pill — reads as a companion to it, not a status. */
+.rent-tag{font-size:11px;font-weight:600;color:#1F5B60;white-space:nowrap;}
 .s-listed{background:#EAE5F3;color:#54457A;}
 .s-escrow{background:#F5EEDA;color:#75601F;}
 .s-sold{background:#DDEDE5;color:#2A5A48;}

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { computeProperty } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { STATUS_LABELS, STATUS_TONE } from "@/lib/constants";
+import { Status } from "@prisma/client";
 import { AddPropertyButton } from "@/components/AddPropertyButton";
 
 export default async function PropertiesPage() {
@@ -41,8 +42,11 @@ export default async function PropertiesPage() {
                   <div className="specs">
                     {property.beds} bd · {property.baths} ba · {property.sqft.toLocaleString()} sqft
                   </div>
-                  <div style={{ marginTop: 8 }}>
+                  <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
                     <span className={`pill ${STATUS_TONE[property.status]}`}>{STATUS_LABELS[property.status]}</span>
+                    {property.status === Status.RENTED && property.monthlyRent && (
+                      <span className="rent-tag">{money(property.monthlyRent)}/mo</span>
+                    )}
                   </div>
                   <div className="fd-prof">
                     <div>

@@ -14,7 +14,7 @@ import {
   EXPENSE_STATUS_LABELS,
   INCOME_CATEGORY_LABELS,
 } from "@/lib/constants";
-import { Prisma } from "@prisma/client";
+import { Prisma, Status } from "@prisma/client";
 import { DeletePropertyButton } from "@/components/DeletePropertyButton";
 import { EditPropertyButton } from "@/components/EditPropertyButton";
 import { BudgetLineRow } from "@/components/BudgetLineRow";
@@ -105,7 +105,12 @@ export default async function PropertyDetailPage({
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-end" }}>
-          <span className={`pill ${STATUS_TONE[property.status]}`}>{STATUS_LABELS[property.status]}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span className={`pill ${STATUS_TONE[property.status]}`}>{STATUS_LABELS[property.status]}</span>
+            {property.status === Status.RENTED && property.monthlyRent && (
+              <span className="rent-tag">{money(property.monthlyRent)}/mo</span>
+            )}
+          </div>
           <div style={{ display: "flex", gap: 8 }}>
             <EditPropertyButton
               property={{

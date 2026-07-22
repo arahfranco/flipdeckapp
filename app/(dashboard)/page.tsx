@@ -4,6 +4,7 @@ import { computeProperty } from "@/lib/calc";
 import { money, pct } from "@/lib/format";
 import { STATUS_LABELS, STATUS_TONE } from "@/lib/constants";
 import { Prisma } from "@prisma/client";
+import { RentCell } from "@/components/RentCell";
 
 export default async function PortfolioPage() {
   await requireAccessPage("portfolio");
@@ -74,6 +75,7 @@ export default async function PortfolioPage() {
               <tr>
                 <th>Address</th>
                 <th>Status</th>
+                <th className="num">Rent/mo</th>
                 <th className="num">Total Cost</th>
                 <th className="num">Price Basis</th>
                 <th className="num">Profit</th>
@@ -88,6 +90,9 @@ export default async function PortfolioPage() {
                     <span className={`pill ${STATUS_TONE[property.status]}`}>
                       {STATUS_LABELS[property.status]}
                     </span>
+                  </td>
+                  <td className="num">
+                    <RentCell status={property.status} monthlyRent={property.monthlyRent} />
                   </td>
                   <td className="num">{money(result.totalActCost)}</td>
                   <td className="num">{money(result.priceBasis)}</td>

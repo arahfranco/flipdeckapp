@@ -236,6 +236,27 @@ describe("computeNetWorth — rental income", () => {
     expect(result.rentedCount).toBe(0);
   });
 
+  // Carried on every valuation, rented or not, so a table can show an unrented
+  // property's figure as the estimate it is rather than hiding it.
+  it("carries monthly rent onto each property valuation", () => {
+    const result = computeNetWorth(
+      [
+        property({ id: "rented", status: Status.RENTED, monthlyRent: D(2000) }),
+        property({ id: "rehab", status: Status.IN_REHAB, monthlyRent: D(1800) }),
+        property({ id: "none", status: Status.LISTED, monthlyRent: null }),
+      ],
+      [],
+      [],
+      []
+    );
+    const byId = Object.fromEntries(result.properties.map((p) => [p.id, p.monthlyRent]));
+    expect(byId.rented?.toNumber()).toBe(2000);
+    expect(byId.rehab?.toNumber()).toBe(1800);
+    expect(byId.none).toBeNull();
+    // ...but only the RENTED one counts as income.
+    expect(result.monthlyRent.toNumber()).toBe(2000);
+  });
+
   // A RENTED property is still owned, so it stays on the balance sheet — only
   // SOLD leaves it.
   it("counts a RENTED property as a held asset", () => {

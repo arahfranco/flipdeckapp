@@ -8,6 +8,7 @@ import { BankAccountRow } from "@/components/BankAccountRow";
 import { AddBankAccountButton } from "@/components/AddBankAccountButton";
 import { LiabilityRow } from "@/components/LiabilityRow";
 import { AddLiabilityButton } from "@/components/AddLiabilityButton";
+import { RentCell } from "@/components/RentCell";
 
 export default async function CompanyValuePage() {
   // Gated on "partners", not "portfolio" — this exposes equity positions,
@@ -92,6 +93,7 @@ export default async function CompanyValuePage() {
               <tr>
                 <th>Property</th>
                 <th>Status</th>
+                <th className="num">Rent/mo</th>
                 <th className="num">Value</th>
                 <th className="num">Cost Basis</th>
                 <th className="num">Unrealized Gain</th>
@@ -100,7 +102,7 @@ export default async function CompanyValuePage() {
             <tbody>
               {nw.properties.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="empty">
+                  <td colSpan={6} className="empty">
                     No held properties. Sold properties are excluded — their proceeds show up as cash.
                   </td>
                 </tr>
@@ -110,6 +112,9 @@ export default async function CompanyValuePage() {
                   <td>{p.address}</td>
                   <td>
                     <span className={`pill ${STATUS_TONE[p.status]}`}>{STATUS_LABELS[p.status]}</span>
+                  </td>
+                  <td className="num">
+                    <RentCell status={p.status} monthlyRent={p.monthlyRent} />
                   </td>
                   <td className="num">
                     {money2(p.value)}
