@@ -36,10 +36,11 @@ export function FileUploadField({ kind, value, onUploaded, label = "File" }: Pro
       try {
         putRes = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
       } catch (netErr) {
-        console.error("Upload blocked", { origin: window.location.origin, uploadHost: new URL(uploadUrl).host, netErr });
+        const uploadHost = new URL(uploadUrl).host;
+        console.error("Upload blocked", { origin: window.location.origin, uploadHost, netErr });
         throw new Error(
-          `Upload was blocked before it reached storage. This site is "${window.location.origin}" — ` +
-            `storage must allow exactly that address. A browser extension or network filter can also cause this.`
+          `Upload blocked. Site "${window.location.origin}" -> storage "${uploadHost}". ` +
+            `Either storage does not allow that site, or something in this browser or network blocked the request.`
         );
       }
       if (!putRes.ok) throw new Error(`Upload failed (${putRes.status} from storage)`);
