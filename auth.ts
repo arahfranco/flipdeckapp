@@ -3,13 +3,10 @@ import Email from "next-auth/providers/email";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import nodemailer from "nodemailer";
 import { db } from "./lib/db";
-
-// Env values pasted into a hosting dashboard sometimes keep the surrounding
-// quotes from a .env line (the quirk that broke DATABASE_URL on Vercel).
-// Strip them so a quoted "re_…" key still matches the Resend check below
-// instead of silently falling through to the SMTP path (which fails on
-// serverless). Defensive — harmless when there are no quotes.
-const env = (name: string) => (process.env[name] ?? "").replace(/^\s*["']|["']\s*$/g, "").trim();
+// Quote-tolerant reads: a quoted "re_…" key must still match the Resend check
+// below instead of silently falling through to the SMTP path, which fails on
+// serverless. See lib/env.ts for why this exists.
+import { env } from "./lib/env";
 
 const smtpConfigured = Boolean(env("EMAIL_SERVER_HOST"));
 
