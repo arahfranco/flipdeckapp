@@ -1,0 +1,11 @@
+-- Adds the buy-and-hold exit to the property lifecycle: rehab finishes and the
+-- property is kept and let out rather than listed for sale.
+--
+-- Positioned AFTER 'IN_REHAB' so the enum stays in lifecycle order, which is
+-- what drives the order of the status dropdown.
+--
+-- Purely additive: no existing row changes, and nothing in the app treats
+-- RENTED specially yet beyond labels. Postgres allows ADD VALUE inside a
+-- transaction since v12 (Neon runs 18) provided the new value isn't *used* in
+-- the same transaction — it isn't here.
+ALTER TYPE "Status" ADD VALUE 'RENTED' AFTER 'IN_REHAB';

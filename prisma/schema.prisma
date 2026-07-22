@@ -88,6 +88,9 @@ enum Status {
   SCOUTING
   UNDER_CONTRACT
   IN_REHAB
+  // The buy-and-hold exit: rehab finishes and the property is kept and let out
+  // instead of listed. Still a held asset — only SOLD leaves the balance sheet.
+  RENTED
   LISTED
   IN_ESCROW
   SOLD
