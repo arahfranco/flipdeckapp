@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import { ALL_SUBS } from "@/lib/constants";
 import { FileUploadField } from "./FileUploadField";
 
-export function AddExpenseButton({ properties }: { properties: { id: string; address: string }[] }) {
+interface Props {
+  properties: { id: string; address: string }[];
+  /** Set when opened from a property page — hides the picker and pins the entry to it. */
+  lockedPropertyId?: string;
+}
+
+export function AddExpenseButton({ properties, lockedPropertyId }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -56,16 +62,20 @@ export function AddExpenseButton({ properties }: { properties: { id: string; add
         </div>
         <form action={submit}>
           <div className="fd-modal-b">
-            <div className="fld">
-              <label>Property</label>
-              <select name="propertyId" required>
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.address}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {lockedPropertyId ? (
+              <input type="hidden" name="propertyId" value={lockedPropertyId} />
+            ) : (
+              <div className="fld">
+                <label>Property</label>
+                <select name="propertyId" required>
+                  {properties.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.address}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="fld-row">
               <div className="fld">
                 <label>Date</label>

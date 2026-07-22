@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 interface Props {
   partners: { id: string; name: string }[];
   properties: { id: string; address: string }[];
+  /** Set when opened from a property page — hides the picker and pins the entry to it. */
+  lockedPropertyId?: string;
 }
 
-export function AddContributionButton({ partners, properties }: Props) {
+export function AddContributionButton({ partners, properties, lockedPropertyId }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -67,16 +69,21 @@ export function AddContributionButton({ partners, properties }: Props) {
                   ))}
                 </select>
               </div>
-              <div className="fld">
-                <label>Property</label>
-                <select name="propertyId" required>
-                  {properties.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.address}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {lockedPropertyId ? (
+                // Hidden inputs don't render, so Partner takes the full row.
+                <input type="hidden" name="propertyId" value={lockedPropertyId} />
+              ) : (
+                <div className="fld">
+                  <label>Property</label>
+                  <select name="propertyId" required>
+                    {properties.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.address}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
             <div className="fld-row">
               <div className="fld">

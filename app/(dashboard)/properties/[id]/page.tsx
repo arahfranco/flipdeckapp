@@ -18,6 +18,9 @@ import { Prisma } from "@prisma/client";
 import { DeletePropertyButton } from "@/components/DeletePropertyButton";
 import { EditPropertyButton } from "@/components/EditPropertyButton";
 import { BudgetLineRow } from "@/components/BudgetLineRow";
+import { AddExpenseButton } from "@/components/AddExpenseButton";
+import { AddPayrollButton } from "@/components/AddPayrollButton";
+import { AddContributionButton } from "@/components/AddContributionButton";
 
 type Tab = "dashboard" | "budget" | "expenses" | "payroll" | "capital";
 
@@ -51,6 +54,18 @@ export default async function PropertyDetailPage({
   });
   if (!property) notFound();
 
+  // Only fetch the lists a visible tab's add-button actually needs. Workers and
+  // partners are behind separate sections, so a role that can't see the tab
+  // never triggers the query.
+  const [workers, partners] = await Promise.all([
+    allowed.includes("payroll")
+      ? db.worker.findMany({ orderBy: { name: "asc" } })
+      : Promise.resolve([]),
+    allowed.includes("partners")
+      ? db.partner.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } })
+      : Promise.resolve([]),
+  ]);
+
   const tabs: Tab[] = (["dashboard", "budget", "expenses", "payroll", "capital"] as Tab[]).filter((t) =>
     allowed.includes(TAB_SECTION[t])
   );
@@ -59,6 +74,15 @@ export default async function PropertyDetailPage({
 
   const result = computeProperty(property.budget, property.expenses, property.payroll);
   const totalIncome = property.income.reduce((s, i) => s.plus(i.amount), new Prisma.Decimal(0));
+
+  // The add-buttons take a property list; from here there is only ever one, and
+  // lockedPropertyId hides the picker entirely.
+  const propertyOption = [{ id: property.id, address: property.address }];
+  const workerOptions = workers.map((w) => ({
+    id: w.id,
+    name: w.name,
+    defaultRate: w.defaultRate?.toString() ?? null,
+  }));
 
   return (
     <>
@@ -222,6 +246,7 @@ export default async function PropertyDetailPage({
         <div className="fd-card" style={{ marginBottom: 22 }}>
           <div className="fd-card-h">
             <h3>Expenses Log</h3>
+            <AddExpenseButton properties={propertyOption} lockedPropertyId={property.id} />
           </div>
           <div className="fd-tw">
             <table className="fd-t">
@@ -312,6 +337,7 @@ export default async function PropertyDetailPage({
         <div className="fd-card">
           <div className="fd-card-h">
             <h3>Payroll Log</h3>
+            <AddPayrollButton properties={propertyOption} workers={workerOptions} lockedPropertyId={property.id} />
           </div>
           <div className="fd-tw">
             <table className="fd-t">
@@ -351,6 +377,11 @@ export default async function PropertyDetailPage({
         <div className="fd-card">
           <div className="fd-card-h">
             <h3>Partner Contributions</h3>
+            <AddContributionButton
+              partners={partners}
+              properties={propertyOption}
+              lockedPropertyId={property.id}
+            />
           </div>
           <div className="fd-tw">
             <table className="fd-t">
