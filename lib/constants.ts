@@ -21,6 +21,7 @@ export const SUBS_BY_CAT: Record<Category, string[]> = {
   // spreads one job across several lines and makes the rollup harder to read.
   "Rehab Costs": [
     "Building Materials",
+    "Labor",
     "Demolition and Site Prep",
     "Framing",
     "Roofing",
@@ -37,7 +38,9 @@ export const SUBS_BY_CAT: Record<Category, string[]> = {
     "Fixtures and Appliances",
     "Landscaping",
     "Miscellaneous and Permits",
-    // "Labor (Payroll)" is derived from PayrollEntry sums, not user-editable — see calc.ts.
+    // "Labor" above is a normal line for labor paid directly as an expense.
+    // Separately, calc.ts appends a derived "Labor (Payroll)" row summed from
+    // PayrollEntry — that one only appears when payroll exists and isn't editable.
   ],
   "Holding Costs": ["Loan Interest", "Property Tax", "Insurance", "Utilities", "HOA Dues", "Security & Maintenance"],
   "Selling Costs": ["Listing Commission", "Buyer Commission", "Staging", "Photography", "Escrow Fees", "Seller Concessions"],
