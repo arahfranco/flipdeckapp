@@ -267,7 +267,8 @@ export default async function PropertyDetailPage({
             <table className="fd-t">
               <thead>
                 <tr>
-                  <th>Date</th>
+                  <th>Date of Receipt</th>
+                  <th>Added</th>
                   <th>Description</th>
                   <th>Subcategory</th>
                   <th>Status</th>
@@ -277,7 +278,7 @@ export default async function PropertyDetailPage({
               <tbody>
                 {property.expenses.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="empty">
+                    <td colSpan={6} className="empty">
                       No expenses logged yet.
                     </td>
                   </tr>
@@ -285,6 +286,7 @@ export default async function PropertyDetailPage({
                 {property.expenses.map((e) => (
                   <tr key={e.id}>
                     <td>{e.date.toISOString().slice(0, 10)}</td>
+                    <td className="hint">{e.createdAt.toISOString().slice(0, 10)}</td>
                     <td>{e.description}</td>
                     <td>{e.subcategory}</td>
                     <td>

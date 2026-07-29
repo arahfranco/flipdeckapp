@@ -10,6 +10,7 @@ interface Props {
   expense: {
     id: string;
     date: string;
+    createdAt: string;
     propertyId: string;
     propertyAddress: string;
     description: string;
@@ -74,6 +75,7 @@ export function ExpenseRow({ expense, properties }: Props) {
         <td>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ minWidth: 130 }} />
         </td>
+        <td className="hint">{expense.createdAt}</td>
         <td>
           <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)} className="sel-inline">
             {properties.map((p) => (
@@ -131,6 +133,7 @@ export function ExpenseRow({ expense, properties }: Props) {
   return (
     <tr>
       <td>{expense.date}</td>
+      <td className="hint">{expense.createdAt}</td>
       <td>{expense.propertyAddress}</td>
       <td>{expense.description}</td>
       <td>{expense.subcategory}</td>

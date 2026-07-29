@@ -27,7 +27,8 @@ export default async function ExpensesPage() {
           <table className="fd-t">
             <thead>
               <tr>
-                <th>Date</th>
+                <th>Date of Receipt</th>
+                <th>Added</th>
                 <th>Property</th>
                 <th>Description</th>
                 <th>Subcategory</th>
@@ -39,7 +40,7 @@ export default async function ExpensesPage() {
             <tbody>
               {expenses.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="empty">
+                  <td colSpan={8} className="empty">
                     No expenses logged yet.
                   </td>
                 </tr>
@@ -50,6 +51,7 @@ export default async function ExpensesPage() {
                   expense={{
                     id: e.id,
                     date: e.date.toISOString().slice(0, 10),
+                    createdAt: e.createdAt.toISOString().slice(0, 10),
                     propertyId: e.propertyId,
                     propertyAddress: e.property.address,
                     description: e.description,
