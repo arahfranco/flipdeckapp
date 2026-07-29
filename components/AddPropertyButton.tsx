@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Status } from "@prisma/client";
+import { STATUS_LABELS } from "@/lib/constants";
 import { FileUploadField } from "./FileUploadField";
 
 export function AddPropertyButton() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [status, setStatus] = useState<Status>(Status.SCOUTING);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,6 +30,8 @@ export function AddPropertyButton() {
           sqft: Number(formData.get("sqft")),
           lotSize: Number(formData.get("lotSize")),
           stories: Number(formData.get("stories")),
+          status: formData.get("status"),
+          monthlyRent: formData.get("monthlyRent"),
           photoUrl,
         }),
       });
@@ -92,13 +97,32 @@ export function AddPropertyButton() {
                 <input type="number" name="lotSize" min="0" required />
               </div>
             </div>
-            <div className="fld">
-              <label>Stories</label>
-              <input type="number" name="stories" min="1" required defaultValue={1} />
+            <div className="fld-row">
+              <div className="fld">
+                <label>Stories</label>
+                <input type="number" name="stories" min="1" required defaultValue={1} />
+              </div>
+              <div className="fld">
+                <label>Status</label>
+                <select name="status" value={status} onChange={(e) => setStatus(e.target.value as Status)}>
+                  {Object.values(Status).map((s) => (
+                    <option key={s} value={s}>
+                      {STATUS_LABELS[s]}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
+            {status === Status.RENTED && (
+              <div className="fld">
+                <label>Monthly Rent</label>
+                <input type="number" name="monthlyRent" step="0.01" min="0" placeholder="e.g. 1450" />
+                <p className="hint">Shown on the property, and counted as rental income on Company Value.</p>
+              </div>
+            )}
             <FileUploadField kind="property-photo" value={photoUrl} onUploaded={setPhotoUrl} label="Photo (optional)" />
             <p className="hint">
-              Starts in Scouting status with a blank standard budget checklist — fill in estimates on the Budget tab.
+              Comes with a blank standard budget checklist — fill in estimates on the Budget tab.
             </p>
             {error && <p className="err">{error}</p>}
           </div>
