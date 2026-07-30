@@ -23,6 +23,9 @@ export function ImportExpensesButton({ properties, subcategories }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imported, setImported] = useState(0);
+  const [ignoreBlanks, setIgnoreBlanks] = useState(true);
+  // Dates typed into the preview for rows whose date cell was blank, by line.
+  const [dates, setDates] = useState<Record<number, string>>({});
 
   function reset() {
     setStep("pick");
@@ -31,6 +34,8 @@ export function ImportExpensesButton({ properties, subcategories }: Props) {
     setResult(null);
     setError(null);
     setImported(0);
+    setIgnoreBlanks(true);
+    setDates({});
   }
   function close() {
     setOpen(false);
@@ -52,9 +57,16 @@ export function ImportExpensesButton({ properties, subcategories }: Props) {
     if (!file) return;
     const text = await file.text();
     setCsvText(text);
-    setResult(buildExpenseImport(text, subcategories)); // instant client-side preview
+    setDates({});
+    setResult(buildExpenseImport(text, subcategories, { ignoreBlanks })); // instant client-side preview
     setStep("preview");
     e.target.value = "";
+  }
+
+  // Re-parse when the blanks toggle flips so the preview reflects it immediately.
+  function toggleIgnoreBlanks(v: boolean) {
+    setIgnoreBlanks(v);
+    if (csvText) setResult(buildExpenseImport(csvText, subcategories, { ignoreBlanks: v }));
   }
 
   async function confirmImport() {
@@ -64,7 +76,7 @@ export function ImportExpensesButton({ properties, subcategories }: Props) {
       const res = await fetch("/api/expenses/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ propertyId, csvText }),
+        body: JSON.stringify({ propertyId, csvText, ignoreBlanks, dates }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Import failed");
@@ -87,7 +99,10 @@ export function ImportExpensesButton({ properties, subcategories }: Props) {
   }
 
   const okRows = result?.rows.filter((r) => r.ok) ?? [];
-  const badRows = result?.rows.filter((r) => !r.ok) ?? [];
+  const needsDateRows = result?.rows.filter((r) => r.needsDate) ?? [];
+  const badRows = result?.rows.filter((r) => !r.ok && !r.needsDate) ?? [];
+  const datedNeedsDate = needsDateRows.filter((r) => dates[r.line]);
+  const importCount = okRows.length + datedNeedsDate.length;
   const propertyName = properties.find((p) => p.id === propertyId)?.address ?? "";
 
   return (
@@ -131,6 +146,22 @@ export function ImportExpensesButton({ properties, subcategories }: Props) {
                 </li>
               </ol>
 
+              <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 14 }}>
+                <input
+                  type="checkbox"
+                  checked={ignoreBlanks}
+                  onChange={(e) => toggleIgnoreBlanks(e.target.checked)}
+                  style={{ marginTop: 3 }}
+                />
+                <span>
+                  <b>Ignore blank rows</b>
+                  <span className="hint" style={{ display: "block" }}>
+                    Skip rows missing an amount or subcategory instead of listing them as problems. A row missing only
+                    its date isn’t skipped — you can add the date below.
+                  </span>
+                </span>
+              </label>
+
               <details style={{ marginTop: 14 }}>
                 <summary className="hint" style={{ cursor: "pointer" }}>
                   Valid subcategory names ({subcategories.length}) — copy these exactly
@@ -157,8 +188,13 @@ export function ImportExpensesButton({ properties, subcategories }: Props) {
               ) : (
                 <>
                   <p style={{ marginBottom: 10 }}>
-                    Importing into <strong>{propertyName}</strong> — <strong>{okRows.length}</strong> ready,{" "}
-                    <strong>{badRows.length}</strong> with problems.
+                    Importing into <strong>{propertyName}</strong> — <strong>{okRows.length}</strong> ready
+                    {needsDateRows.length > 0 && (
+                      <>
+                        , <strong>{needsDateRows.length}</strong> need a date
+                      </>
+                    )}
+                    , <strong>{badRows.length}</strong> with problems.
                   </p>
 
                   {okRows.length > 0 && (
@@ -185,6 +221,45 @@ export function ImportExpensesButton({ properties, subcategories }: Props) {
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  )}
+
+                  {needsDateRows.length > 0 && (
+                    <div style={{ marginTop: 12 }}>
+                      <p style={{ marginBottom: 6 }}>
+                        These rows are missing a date — pick one to include them. Any left blank are skipped.
+                      </p>
+                      <div className="fd-tw" style={{ maxHeight: 220, overflowY: "auto" }}>
+                        <table className="fd-t">
+                          <thead>
+                            <tr>
+                              <th style={{ width: 170 }}>Date</th>
+                              <th>Subcategory</th>
+                              <th>Description</th>
+                              <th className="num">Amount</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {needsDateRows.map((r) => (
+                              <tr key={r.line}>
+                                <td>
+                                  <input
+                                    type="date"
+                                    value={dates[r.line] ?? ""}
+                                    onChange={(e) => setDates((d) => ({ ...d, [r.line]: e.target.value }))}
+                                    style={{ width: 150 }}
+                                  />
+                                </td>
+                                <td>{r.subcategory}</td>
+                                <td>{r.description || <span className="hint">—</span>}</td>
+                                <td className="num">{money2(r.amount ?? 0)}</td>
+                                <td>{r.status}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   )}
 
@@ -224,9 +299,9 @@ export function ImportExpensesButton({ properties, subcategories }: Props) {
               <button className="fd-btn ghost" onClick={() => setStep("pick")} disabled={busy}>
                 Back
               </button>
-              {okRows.length > 0 && (
+              {importCount > 0 && (
                 <button className="fd-btn" onClick={confirmImport} disabled={busy}>
-                  {busy ? "Importing…" : `Import ${okRows.length} Expense${okRows.length === 1 ? "" : "s"}`}
+                  {busy ? "Importing…" : `Import ${importCount} Expense${importCount === 1 ? "" : "s"}`}
                 </button>
               )}
             </>

@@ -13,6 +13,9 @@ export type ImportStatus = "PENDING" | "PAID" | "REIMBURSED";
 export interface ExpenseImportRow {
   line: number;
   ok: boolean;
+  /** Otherwise-valid row whose only problem is a missing date — offered for
+   *  inline date entry in the preview rather than reported as an error. */
+  needsDate?: boolean;
   error?: string;
   date?: string;
   subcategory?: string;
@@ -25,7 +28,14 @@ export interface ExpenseImportResult {
   headerError?: string;
   rows: ExpenseImportRow[];
   okCount: number;
+  needsDateCount: number;
   errorCount: number;
+}
+
+export interface ExpenseImportOptions {
+  /** When true, rows missing a required value (amount or subcategory) are
+   *  skipped silently instead of listed as problems. Default true. */
+  ignoreBlanks?: boolean;
 }
 
 const STATUS_ALIASES: Record<string, ImportStatus> = {
@@ -61,10 +71,15 @@ function parseAmount(raw: string): number {
  * subcategories. Never throws — bad rows come back flagged with a reason so the
  * whole import isn't lost to one typo.
  */
-export function buildExpenseImport(text: string, validSubcategories: string[]): ExpenseImportResult {
+export function buildExpenseImport(
+  text: string,
+  validSubcategories: string[],
+  options: ExpenseImportOptions = {},
+): ExpenseImportResult {
+  const ignoreBlanks = options.ignoreBlanks ?? true;
   const grid = parseCSV(text);
   if (grid.length === 0) {
-    return { headerError: "The file is empty.", rows: [], okCount: 0, errorCount: 0 };
+    return { headerError: "The file is empty.", rows: [], okCount: 0, needsDateCount: 0, errorCount: 0 };
   }
 
   const header = grid[0].map((h) => h.trim().toLowerCase());
@@ -80,6 +95,7 @@ export function buildExpenseImport(text: string, validSubcategories: string[]): 
       headerError: 'Missing required columns. The first row must include "Date", "Subcategory", and "Amount".',
       rows: [],
       okCount: 0,
+      needsDateCount: 0,
       errorCount: 0,
     };
   }
@@ -96,9 +112,14 @@ export function buildExpenseImport(text: string, validSubcategories: string[]): 
     const rawAmt = cells[iAmt] ?? "";
     const description = (iDesc >= 0 ? cells[iDesc] : "")?.trim() ?? "";
 
-    const date = normDate(rawDate);
-    if (!date) {
-      rows.push({ line, ok: false, error: `Couldn't read the date "${rawDate.trim()}". Use YYYY-MM-DD.` });
+    // Amount and subcategory can't be fixed inside the preview. If either is
+    // blank, honour the "ignore blanks" choice: skip quietly, or flag it.
+    const amtBlank = rawAmt.trim() === "";
+    const subBlank = rawSub.trim() === "";
+    if (amtBlank || subBlank) {
+      if (ignoreBlanks) continue;
+      const missing = [amtBlank && "amount", subBlank && "subcategory"].filter(Boolean).join(" and ");
+      rows.push({ line, ok: false, error: `Missing ${missing}.` });
       continue;
     }
 
@@ -130,11 +151,25 @@ export function buildExpenseImport(text: string, validSubcategories: string[]): 
       status = mapped;
     }
 
+    // Date is the one field that can be supplied from the preview. A blank date
+    // becomes a "needs a date" row (offered a picker) rather than an error; a
+    // present-but-unreadable date is still a genuine error.
+    if (rawDate.trim() === "") {
+      rows.push({ line, ok: false, needsDate: true, subcategory: match, amount, description, status });
+      continue;
+    }
+    const date = normDate(rawDate);
+    if (!date) {
+      rows.push({ line, ok: false, error: `Couldn't read the date "${rawDate.trim()}". Use YYYY-MM-DD.` });
+      continue;
+    }
+
     rows.push({ line, ok: true, date, subcategory: match, amount, description, status });
   }
 
   const okCount = rows.filter((r) => r.ok).length;
-  return { rows, okCount, errorCount: rows.length - okCount };
+  const needsDateCount = rows.filter((r) => r.needsDate).length;
+  return { rows, okCount, needsDateCount, errorCount: rows.length - okCount - needsDateCount };
 }
 
 /** The downloadable starter file: header plus two example rows using real subcategories. */
