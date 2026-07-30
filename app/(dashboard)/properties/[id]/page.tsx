@@ -273,12 +273,13 @@ export default async function PropertyDetailPage({
                   <th>Subcategory</th>
                   <th>Status</th>
                   <th className="num">Amount</th>
+                  <th>Receipt</th>
                 </tr>
               </thead>
               <tbody>
                 {property.expenses.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="empty">
+                    <td colSpan={7} className="empty">
                       No expenses logged yet.
                     </td>
                   </tr>
@@ -293,6 +294,15 @@ export default async function PropertyDetailPage({
                       <span className={`pill p-${e.status.toLowerCase()}`}>{EXPENSE_STATUS_LABELS[e.status]}</span>
                     </td>
                     <td className="num">{money2(e.amount)}</td>
+                    <td>
+                      {e.receiptUrl ? (
+                        <a href={e.receiptUrl} target="_blank" rel="noreferrer" className="linkish">
+                          View ↗
+                        </a>
+                      ) : (
+                        <span className="hint">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

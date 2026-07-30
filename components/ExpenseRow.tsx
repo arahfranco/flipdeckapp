@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ExpenseStatus } from "@prisma/client";
 import { money2 } from "@/lib/format";
 import { ALL_SUBS, EXPENSE_STATUS_LABELS } from "@/lib/constants";
+import { FileUploadField } from "./FileUploadField";
 
 interface Props {
   expense: {
@@ -17,6 +18,7 @@ interface Props {
     subcategory: string;
     status: ExpenseStatus;
     amount: string;
+    receiptUrl: string | null;
   };
   properties: { id: string; address: string }[];
 }
@@ -31,6 +33,7 @@ export function ExpenseRow({ expense, properties }: Props) {
   const [subcategory, setSubcategory] = useState(expense.subcategory);
   const [status, setStatus] = useState<ExpenseStatus>(expense.status);
   const [amount, setAmount] = useState(expense.amount);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(expense.receiptUrl);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +46,7 @@ export function ExpenseRow({ expense, properties }: Props) {
       const res = await fetch(`/api/expenses/${expense.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, propertyId, description, subcategory, status, amount: Number(amount) }),
+        body: JSON.stringify({ date, propertyId, description, subcategory, status, amount: Number(amount), receiptUrl }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Could not save");
       setEditing(false);
@@ -115,6 +118,9 @@ export function ExpenseRow({ expense, properties }: Props) {
             style={{ width: 100, textAlign: "right" }}
           />
         </td>
+        <td style={{ minWidth: 150 }}>
+          <FileUploadField kind="receipt" value={receiptUrl} onUploaded={setReceiptUrl} label="" />
+        </td>
         <td>
           <div style={{ display: "flex", gap: 6 }}>
             <button className="fd-btn sm" onClick={save} disabled={busy}>
@@ -141,6 +147,15 @@ export function ExpenseRow({ expense, properties }: Props) {
         <span className={`pill p-${expense.status.toLowerCase()}`}>{EXPENSE_STATUS_LABELS[expense.status]}</span>
       </td>
       <td className="num">{money2(Number(expense.amount))}</td>
+      <td>
+        {expense.receiptUrl ? (
+          <a href={expense.receiptUrl} target="_blank" rel="noreferrer" className="linkish">
+            View ↗
+          </a>
+        ) : (
+          <span className="hint">—</span>
+        )}
+      </td>
       <td>
         <div style={{ display: "flex", gap: 6 }}>
           <button className="fd-btn ghost sm" onClick={() => setEditing(true)}>

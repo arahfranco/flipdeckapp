@@ -34,13 +34,14 @@ export default async function ExpensesPage() {
                 <th>Subcategory</th>
                 <th>Status</th>
                 <th className="num">Amount</th>
+                <th>Receipt</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {expenses.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="empty">
+                  <td colSpan={9} className="empty">
                     No expenses logged yet.
                   </td>
                 </tr>
@@ -58,6 +59,7 @@ export default async function ExpensesPage() {
                     subcategory: e.subcategory,
                     status: e.status,
                     amount: e.amount.toString(),
+                    receiptUrl: e.receiptUrl,
                   }}
                   properties={properties}
                 />
