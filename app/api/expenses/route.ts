@@ -8,13 +8,14 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   const { propertyId, date, amount, description, subcategory, status, receiptUrl } = body;
-  if (!propertyId || !date || amount == null || !description || !subcategory) {
+  // propertyId is optional — blank means a general / overhead expense.
+  if (!date || amount == null || !description || !subcategory) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
   const expense = await db.expense.create({
     data: {
-      propertyId,
+      propertyId: propertyId || null,
       date: new Date(date),
       amount,
       description,

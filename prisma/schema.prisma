@@ -148,8 +148,11 @@ model Expense {
   id          String        @id @default(cuid())
   date        DateTime      @db.Date // date on the receipt / when the expense occurred
   createdAt   DateTime      @default(now()) // when the entry was added to Flipdeck
-  propertyId  String
-  property    Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  // Optional: a blank property is a general / overhead expense, counted
+  // company-wide rather than against one flip. SetNull so deleting a property
+  // turns its expenses into general ones rather than destroying them.
+  propertyId  String?
+  property    Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   amount      Decimal       @db.Decimal(12, 2)
   description String
   subcategory String
@@ -229,8 +232,10 @@ model Worker {
 model PayrollEntry {
   id         String   @id @default(cuid())
   date       DateTime @db.Date
-  propertyId String
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  // Optional: blank is general labor (admin/shared), counted as overhead rather
+  // than a property's rehab. SetNull mirrors Expense.
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   workerId   String
   worker     Worker   @relation(fields: [workerId], references: [id])
   hours      Decimal  @db.Decimal(8, 2)

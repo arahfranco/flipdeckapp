@@ -12,8 +12,8 @@ interface Props {
     id: string;
     date: string;
     createdAt: string;
-    propertyId: string;
-    propertyAddress: string;
+    propertyId: string | null;
+    propertyAddress: string | null;
     description: string;
     subcategory: string;
     status: ExpenseStatus;
@@ -28,7 +28,7 @@ export function ExpenseRow({ expense, properties }: Props) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [date, setDate] = useState(expense.date);
-  const [propertyId, setPropertyId] = useState(expense.propertyId);
+  const [propertyId, setPropertyId] = useState(expense.propertyId ?? "");
   const [description, setDescription] = useState(expense.description);
   const [subcategory, setSubcategory] = useState(expense.subcategory);
   const [status, setStatus] = useState<ExpenseStatus>(expense.status);
@@ -101,6 +101,7 @@ export function ExpenseRow({ expense, properties }: Props) {
         <td className="hint">{expense.createdAt}</td>
         <td>
           <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)} className="sel-inline">
+            <option value="">— General —</option>
             {properties.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.address}
@@ -160,7 +161,7 @@ export function ExpenseRow({ expense, properties }: Props) {
     <tr>
       <td>{expense.date}</td>
       <td className="hint">{expense.createdAt}</td>
-      <td>{expense.propertyAddress}</td>
+      <td>{expense.propertyAddress ?? <span className="hint">General</span>}</td>
       <td>{expense.description}</td>
       <td>{expense.subcategory}</td>
       <td>
@@ -194,7 +195,8 @@ export function ExpenseRow({ expense, properties }: Props) {
               </div>
               <div className="fd-modal-b">
                 <p>
-                  {expense.description} — {money2(Number(expense.amount))} at {expense.propertyAddress}
+                  {expense.description} — {money2(Number(expense.amount))}
+                  {expense.propertyAddress ? ` at ${expense.propertyAddress}` : " (general)"}
                 </p>
                 <p className="hint">
                   If this was created by posting a bank transaction, the bank row stays but returns to unposted.

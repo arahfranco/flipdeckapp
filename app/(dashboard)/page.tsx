@@ -17,6 +17,17 @@ export default async function PortfolioPage() {
 
   const partners = await db.partner.findMany({ include: { contributions: true } });
 
+  // General / overhead: expenses and labor not tied to any property. They never
+  // enter a property rollup (those query a specific propertyId), so they'd be
+  // invisible without their own total here.
+  const [generalExpenses, generalPayroll] = await Promise.all([
+    db.expense.findMany({ where: { propertyId: null }, select: { amount: true } }),
+    db.payrollEntry.findMany({ where: { propertyId: null }, select: { hours: true, rate: true } }),
+  ]);
+  const generalOverhead = generalExpenses
+    .reduce((s, e) => s.plus(e.amount), new Prisma.Decimal(0))
+    .plus(generalPayroll.reduce((s, p) => s.plus(p.hours.times(p.rate)), new Prisma.Decimal(0)));
+
   const computed = properties.map((p) => ({
     property: p,
     result: computeProperty(p.budget, p.expenses, p.payroll),
@@ -47,7 +58,7 @@ export default async function PortfolioPage() {
         </div>
       </header>
 
-      <div className="fd-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 22 }}>
+      <div className="fd-grid" style={{ gridTemplateColumns: "repeat(5, 1fr)", marginBottom: 22 }}>
         <div className="fd-stat">
           <div className="lbl">Projected Profit</div>
           <div className="val">{money(projectedProfit)}</div>
@@ -63,6 +74,11 @@ export default async function PortfolioPage() {
         <div className="fd-stat">
           <div className="lbl">Total Cost (Actual)</div>
           <div className="val">{money(totalCost)}</div>
+        </div>
+        <div className="fd-stat">
+          <div className="lbl">General / Overhead</div>
+          <div className={`val ${generalOverhead.greaterThan(0) ? "neg" : ""}`}>{money(generalOverhead)}</div>
+          <div className="meta">Not tied to a property</div>
         </div>
       </div>
 

@@ -89,7 +89,8 @@ export function AddPayrollButton({ properties, workers, lockedPropertyId }: Prop
             ) : (
               <div className="fld">
                 <label>Property</label>
-                <select name="propertyId" required>
+                <select name="propertyId" defaultValue="">
+                  <option value="">— General / overhead (no property) —</option>
                   {properties.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.address}

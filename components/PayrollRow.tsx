@@ -8,8 +8,8 @@ interface Props {
   entry: {
     id: string;
     date: string;
-    propertyId: string;
-    propertyAddress: string;
+    propertyId: string | null;
+    propertyAddress: string | null;
     workerId: string;
     workerName: string;
     hours: string;
@@ -25,7 +25,7 @@ export function PayrollRow({ entry, properties, workers }: Props) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [date, setDate] = useState(entry.date);
-  const [propertyId, setPropertyId] = useState(entry.propertyId);
+  const [propertyId, setPropertyId] = useState(entry.propertyId ?? "");
   const [workerId, setWorkerId] = useState(entry.workerId);
   const [hours, setHours] = useState(entry.hours);
   const [rate, setRate] = useState(entry.rate);
@@ -73,6 +73,7 @@ export function PayrollRow({ entry, properties, workers }: Props) {
         </td>
         <td>
           <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)} className="sel-inline">
+            <option value="">— General —</option>
             {properties.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.address}
@@ -126,7 +127,7 @@ export function PayrollRow({ entry, properties, workers }: Props) {
   return (
     <tr>
       <td>{entry.date}</td>
-      <td>{entry.propertyAddress}</td>
+      <td>{entry.propertyAddress ?? <span className="hint">General</span>}</td>
       <td>{entry.workerName}</td>
       <td className="num">{entry.hours}</td>
       <td className="num">{money2(Number(entry.rate))}</td>
@@ -149,7 +150,8 @@ export function PayrollRow({ entry, properties, workers }: Props) {
               </div>
               <div className="fd-modal-b">
                 <p>
-                  {entry.workerName} — {entry.hours} hrs at {entry.propertyAddress} on {entry.date}
+                  {entry.workerName} — {entry.hours} hrs on {entry.date}
+                  {entry.propertyAddress ? ` at ${entry.propertyAddress}` : " (general)"}
                 </p>
                 {error && <p className="err">{error}</p>}
               </div>

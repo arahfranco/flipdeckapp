@@ -38,7 +38,7 @@ export default async function ExpensesPage() {
             date: e.date.toISOString().slice(0, 10),
             createdAt: e.createdAt.toISOString().slice(0, 10),
             propertyId: e.propertyId,
-            propertyAddress: e.property.address,
+            propertyAddress: e.property?.address ?? null,
             description: e.description,
             subcategory: e.subcategory,
             status: e.status,

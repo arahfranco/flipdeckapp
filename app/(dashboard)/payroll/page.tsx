@@ -95,7 +95,7 @@ export default async function PayrollPage() {
                     id: e.id,
                     date: e.date.toISOString().slice(0, 10),
                     propertyId: e.propertyId,
-                    propertyAddress: e.property.address,
+                    propertyAddress: e.property?.address ?? null,
                     workerId: e.workerId,
                     workerName: e.worker.name,
                     hours: e.hours.toString(),

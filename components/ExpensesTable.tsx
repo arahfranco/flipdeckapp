@@ -8,8 +8,8 @@ interface ExpenseVM {
   id: string;
   date: string;
   createdAt: string;
-  propertyId: string;
-  propertyAddress: string;
+  propertyId: string | null;
+  propertyAddress: string | null;
   description: string;
   subcategory: string;
   status: ExpenseStatus;
@@ -48,6 +48,9 @@ function compare(a: ExpenseVM, b: ExpenseVM, key: SortKey): number {
     case "date":
     case "createdAt":
       return a[key].localeCompare(b[key]); // ISO YYYY-MM-DD sorts chronologically
+    case "propertyAddress":
+      // General (null) sorts to the end of A→Z.
+      return (a.propertyAddress ?? "￿").localeCompare(b.propertyAddress ?? "￿");
     default:
       return a[key].localeCompare(b[key]);
   }
