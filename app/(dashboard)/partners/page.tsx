@@ -82,7 +82,7 @@ export default async function PartnersPage() {
                       partnerId: c.partnerId,
                       partnerName: c.partnerName,
                       propertyId: c.propertyId,
-                      propertyAddress: c.property.address,
+                      propertyAddress: c.property?.address ?? null,
                       kind: c.kind,
                       description: c.description,
                       amount: c.amount.toString(),

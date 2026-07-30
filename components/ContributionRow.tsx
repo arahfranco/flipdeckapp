@@ -11,8 +11,8 @@ interface Props {
     date: string;
     partnerId: string;
     partnerName: string;
-    propertyId: string;
-    propertyAddress: string;
+    propertyId: string | null;
+    propertyAddress: string | null;
     kind: ContribKind;
     description: string | null;
     amount: string;
@@ -27,7 +27,7 @@ export function ContributionRow({ contribution, partners, properties }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [date, setDate] = useState(contribution.date);
   const [partnerId, setPartnerId] = useState(contribution.partnerId);
-  const [propertyId, setPropertyId] = useState(contribution.propertyId);
+  const [propertyId, setPropertyId] = useState(contribution.propertyId ?? "");
   const [kind, setKind] = useState<ContribKind>(contribution.kind);
   const [description, setDescription] = useState(contribution.description ?? "");
   const [amount, setAmount] = useState(contribution.amount);
@@ -84,6 +84,7 @@ export function ContributionRow({ contribution, partners, properties }: Props) {
         </td>
         <td>
           <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)} className="sel-inline">
+            <option value="">— Company-level —</option>
             {properties.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.address}
@@ -131,7 +132,7 @@ export function ContributionRow({ contribution, partners, properties }: Props) {
     <tr>
       <td>{contribution.date}</td>
       <td>{contribution.partnerName}</td>
-      <td>{contribution.propertyAddress}</td>
+      <td>{contribution.propertyAddress ?? <span className="hint">Company-level</span>}</td>
       <td>
         <span className={`pill p-${contribution.kind.toLowerCase()}`}>{contribution.kind}</span>
       </td>
@@ -158,8 +159,8 @@ export function ContributionRow({ contribution, partners, properties }: Props) {
               </div>
               <div className="fd-modal-b">
                 <p>
-                  {contribution.partnerName} — {contribution.kind} of {money2(Number(contribution.amount))} at{" "}
-                  {contribution.propertyAddress}
+                  {contribution.partnerName} — {contribution.kind} of {money2(Number(contribution.amount))}
+                  {contribution.propertyAddress ? ` at ${contribution.propertyAddress}` : " (company-level)"}
                 </p>
                 {error && <p className="err">{error}</p>}
               </div>

@@ -74,8 +74,9 @@ export function AddContributionButton({ partners, properties, lockedPropertyId }
                 <input type="hidden" name="propertyId" value={lockedPropertyId} />
               ) : (
                 <div className="fld">
-                  <label>Property</label>
-                  <select name="propertyId" required>
+                  <label>Property (optional)</label>
+                  <select name="propertyId" defaultValue="">
+                    <option value="">— Company-level (no property) —</option>
                     {properties.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.address}

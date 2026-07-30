@@ -8,7 +8,8 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   const { partnerId, propertyId, date, kind, amount, description } = body;
-  if (!partnerId || !propertyId || !date || !kind || amount == null) {
+  // Property is optional now — a contribution can be company-level.
+  if (!partnerId || !date || !kind || amount == null) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
   if (!["EQUITY", "LOAN", "DRAW"].includes(kind)) {
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
   }
 
   const contribution = await db.contribution.create({
-    data: { partnerId, propertyId, date: new Date(date), kind, amount, description: description || null },
+    data: { partnerId, propertyId: propertyId || null, date: new Date(date), kind, amount, description: description || null },
   });
   return NextResponse.json(contribution, { status: 201 });
 }

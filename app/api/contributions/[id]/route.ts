@@ -8,9 +8,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const body = await req.json();
   const data: Record<string, unknown> = {};
-  for (const key of ["kind", "amount", "description", "partnerId", "propertyId"]) {
+  for (const key of ["kind", "amount", "description", "partnerId"]) {
     if (key in body) data[key] = body[key];
   }
+  // A blank property clears the link (company-level) rather than writing "".
+  if ("propertyId" in body) data.propertyId = body.propertyId || null;
   if (body.date) data.date = new Date(body.date);
 
   const contribution = await db.contribution.update({ where: { id: params.id }, data });

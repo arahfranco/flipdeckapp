@@ -275,8 +275,11 @@ model Contribution {
   date        DateTime    @db.Date
   partnerId   String
   partner     Partner     @relation(fields: [partnerId], references: [id])
-  propertyId  String
-  property    Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  // Optional: a contribution can be company-level (blank) rather than tied to one
+  // property. SetNull, not Cascade — deleting a property must not erase a
+  // partner's capital entry, only detach it.
+  propertyId  String?
+  property    Property?   @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   kind        ContribKind
   amount      Decimal     @db.Decimal(12, 2)
   description String?
