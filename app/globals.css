@@ -108,6 +108,15 @@
 .fd-t th .sortbtn.active .car{opacity:1;color:var(--rust);}
 .fd-t th .sortbtn:focus-visible{outline:2px solid var(--green);outline-offset:2px;}
 
+/* Bulk import dialog */
+.steps-list{margin:16px 0 4px;padding-left:20px;display:flex;flex-direction:column;gap:14px;font-size:14px;}
+.steps-list li{padding-left:4px;}
+.sub-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.sub-chip{font-size:11.5px;background:var(--rule-2);color:var(--ink-2);padding:3px 9px;border-radius:20px;
+  border:1px solid var(--rule);}
+.err-list{margin:0 0 0 18px;font-size:13px;color:var(--ink-2);max-height:160px;overflow-y:auto;}
+.err-list li{margin:4px 0;}
+
 /* charts
    Series colours are their own tokens, not the UI palette: the UI greens and
    slates are deliberately desaturated, and as chart series they fail the

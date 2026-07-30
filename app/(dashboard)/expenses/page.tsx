@@ -1,6 +1,8 @@
 import { requireAccessPage } from "@/lib/authz";
 import { db } from "@/lib/db";
+import { ALL_SUBS } from "@/lib/constants";
 import { AddExpenseButton } from "@/components/AddExpenseButton";
+import { ImportExpensesButton } from "@/components/ImportExpensesButton";
 import { ExpensesTable } from "@/components/ExpensesTable";
 
 export default async function ExpensesPage() {
@@ -19,7 +21,13 @@ export default async function ExpensesPage() {
           <h2>Expenses Log</h2>
           <div className="fd-sub">Rolls into rehab actuals per property — see each property's Budget tab.</div>
         </div>
-        <AddExpenseButton properties={properties} />
+        <div style={{ display: "flex", gap: 8 }}>
+          <ImportExpensesButton
+            properties={properties}
+            subcategories={ALL_SUBS.filter((s) => s.cat !== "Selling Price").map((s) => s.sub)}
+          />
+          <AddExpenseButton properties={properties} />
+        </div>
       </header>
 
       <div className="fd-card">
