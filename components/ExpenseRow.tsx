@@ -78,6 +78,28 @@ export function ExpenseRow({ expense, properties }: Props) {
     }
   }
 
+  // Set the date straight from the log for a row that imported without one,
+  // without entering full edit mode.
+  async function saveDateInline(value: string) {
+    setDate(value);
+    if (!value) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/expenses/${expense.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: value }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Could not save the date");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function remove() {
     setBusy(true);
     setError(null);
@@ -159,7 +181,20 @@ export function ExpenseRow({ expense, properties }: Props) {
 
   return (
     <tr>
-      <td>{expense.date}</td>
+      <td>
+        {expense.date ? (
+          expense.date
+        ) : (
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => saveDateInline(e.target.value)}
+            disabled={busy}
+            title="Add a date"
+            style={{ minWidth: 130 }}
+          />
+        )}
+      </td>
       <td className="hint">{expense.createdAt}</td>
       <td>{expense.propertyAddress ?? <span className="hint">General</span>}</td>
       <td>{expense.description}</td>

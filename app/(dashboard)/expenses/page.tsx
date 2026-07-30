@@ -35,7 +35,7 @@ export default async function ExpensesPage() {
           properties={properties}
           expenses={expenses.map((e) => ({
             id: e.id,
-            date: e.date.toISOString().slice(0, 10),
+            date: e.date ? e.date.toISOString().slice(0, 10) : "",
             createdAt: e.createdAt.toISOString().slice(0, 10),
             propertyId: e.propertyId,
             propertyAddress: e.property?.address ?? null,

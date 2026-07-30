@@ -286,7 +286,7 @@ export default async function PropertyDetailPage({
                 )}
                 {property.expenses.map((e) => (
                   <tr key={e.id}>
-                    <td>{e.date.toISOString().slice(0, 10)}</td>
+                    <td>{e.date ? e.date.toISOString().slice(0, 10) : <span className="hint">—</span>}</td>
                     <td className="hint">{e.createdAt.toISOString().slice(0, 10)}</td>
                     <td>{e.description}</td>
                     <td>{e.subcategory}</td>

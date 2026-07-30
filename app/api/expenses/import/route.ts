@@ -3,25 +3,24 @@ import { requireAccess } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { ALL_SUBS } from "@/lib/constants";
 import { buildExpenseImport, type ImportStatus } from "@/lib/expenseImport";
-import { normDate } from "@/lib/csvImport";
 
-// Bulk-creates expenses from the template CSV, all against one property.
-// Re-validates server-side rather than trusting the client's preview.
+// Bulk-creates expenses from the template CSV, against one property or, when no
+// property is chosen, as general / overhead. Re-validates server-side rather
+// than trusting the client's preview.
 export async function POST(req: Request) {
   const guard = await requireAccess("expenses");
   if ("error" in guard) return guard.error;
 
   const body = await req.json();
-  const propertyId: string = body.propertyId ?? "";
+  // Blank propertyId is allowed — a general / overhead import.
+  const propertyId: string | null = body.propertyId || null;
   const csvText: string = body.csvText ?? "";
   const ignoreBlanks: boolean = body.ignoreBlanks ?? true;
-  // Dates the user filled in the preview for rows whose date was blank,
-  // keyed by 1-based line number. Re-validated here, not trusted blindly.
-  const filledDates: Record<string, string> = body.dates ?? {};
 
-  if (!propertyId) return NextResponse.json({ error: "Pick a property first" }, { status: 400 });
-  const property = await db.property.findUnique({ where: { id: propertyId } });
-  if (!property) return NextResponse.json({ error: "Property not found" }, { status: 404 });
+  if (propertyId) {
+    const property = await db.property.findUnique({ where: { id: propertyId } });
+    if (!property) return NextResponse.json({ error: "Property not found" }, { status: 404 });
+  }
 
   // Selling Price is revenue, not an expense subcategory — not importable.
   const validSubcats = ALL_SUBS.filter((s) => s.cat !== "Selling Price").map((s) => s.sub);
@@ -29,17 +28,14 @@ export async function POST(req: Request) {
   const result = buildExpenseImport(csvText, validSubcats, { ignoreBlanks });
   if (result.headerError) return NextResponse.json({ error: result.headerError }, { status: 400 });
 
-  // Importable = rows that already had a date, plus needs-a-date rows for which
-  // the preview supplied a valid one. Everything else is skipped.
-  const toCreate: { date: Date; subcategory: string; amount: number; description: string; status: ImportStatus }[] =
+  // Importable = every valid row. Rows with no date import with a null date and
+  // are dated later from the Expenses Log. Only genuinely bad rows are skipped.
+  const toCreate: { date: Date | null; subcategory: string; amount: number; description: string; status: ImportStatus }[] =
     [];
   for (const r of result.rows) {
-    let date: string | null = null;
-    if (r.ok) date = r.date!;
-    else if (r.needsDate) date = normDate(filledDates[String(r.line)] ?? "");
-    if (!date) continue;
+    if (!r.ok && !r.needsDate) continue; // a real error — skip
     toCreate.push({
-      date: new Date(date),
+      date: r.date ? new Date(r.date) : null,
       subcategory: r.subcategory!,
       amount: r.amount!,
       description: r.description || r.subcategory!,
