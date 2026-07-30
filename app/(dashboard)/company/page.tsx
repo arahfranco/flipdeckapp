@@ -282,11 +282,12 @@ export default async function CompanyValuePage() {
                 const loans = partner.contributions
                   .filter((c) => c.kind === ContribKind.LOAN)
                   .reduce((s, c) => s.plus(c.amount), new Prisma.Decimal(0));
-                // Share of the total. Guard divide-by-zero when no equity/loans
-                // exist yet — a percentage of nothing is "—", not 0%.
-                const stakePct = nw.partnerEquity.isZero()
-                  ? null
-                  : equity.dividedBy(nw.partnerEquity).times(100);
+                // Stake = this partner's equity as a share of company equity
+                // (net worth). Only meaningful when net worth is positive — a
+                // share of zero or negative equity would mislead, so it reads "—".
+                const stakePct = nw.companyEquity.greaterThan(0)
+                  ? equity.dividedBy(nw.companyEquity).times(100)
+                  : null;
                 const loanPct = nw.partnerLoans.isZero() ? null : loans.dividedBy(nw.partnerLoans).times(100);
                 return (
                   <tr key={partner.id}>
@@ -301,7 +302,11 @@ export default async function CompanyValuePage() {
               <tr className="grp">
                 <td>Total</td>
                 <td className="num">{money2(nw.partnerEquity)}</td>
-                <td className="num">{nw.partnerEquity.isZero() ? "—" : "100%"}</td>
+                <td className="num">
+                  {nw.companyEquity.greaterThan(0)
+                    ? `${nw.partnerEquity.dividedBy(nw.companyEquity).times(100).toDecimalPlaces(1)}%`
+                    : "—"}
+                </td>
                 <td className="num">{money2(nw.partnerLoans)}</td>
                 <td className="num">{nw.partnerLoans.isZero() ? "—" : "100%"}</td>
               </tr>
@@ -310,8 +315,10 @@ export default async function CompanyValuePage() {
         </div>
         <div className="fd-card-b" style={{ borderTop: "1px solid var(--rule-2)" }}>
           <p className="hint">
-            Partner loans are money the company owes, so they count as liabilities above. Partner equity is
-            owner capital and is not debt.
+            Stake is each partner&apos;s equity as a share of company equity (net worth). The partners&apos; stakes
+            won&apos;t add to 100% — the remainder is retained gains (property appreciation and profit), not any
+            partner&apos;s contributed capital. Partner loans are money the company owes, so they count as
+            liabilities above; partner equity is owner capital and is not debt.
           </p>
         </div>
       </div>
