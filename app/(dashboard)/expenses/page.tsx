@@ -1,7 +1,7 @@
 import { requireAccessPage } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { AddExpenseButton } from "@/components/AddExpenseButton";
-import { ExpenseRow } from "@/components/ExpenseRow";
+import { ExpensesTable } from "@/components/ExpensesTable";
 
 export default async function ExpensesPage() {
   await requireAccessPage("expenses");
@@ -23,50 +23,21 @@ export default async function ExpensesPage() {
       </header>
 
       <div className="fd-card">
-        <div className="fd-tw">
-          <table className="fd-t">
-            <thead>
-              <tr>
-                <th>Date of Receipt</th>
-                <th>Added</th>
-                <th>Property</th>
-                <th>Description</th>
-                <th>Subcategory</th>
-                <th>Status</th>
-                <th className="num">Amount</th>
-                <th>Receipt</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {expenses.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="empty">
-                    No expenses logged yet.
-                  </td>
-                </tr>
-              )}
-              {expenses.map((e) => (
-                <ExpenseRow
-                  key={e.id}
-                  expense={{
-                    id: e.id,
-                    date: e.date.toISOString().slice(0, 10),
-                    createdAt: e.createdAt.toISOString().slice(0, 10),
-                    propertyId: e.propertyId,
-                    propertyAddress: e.property.address,
-                    description: e.description,
-                    subcategory: e.subcategory,
-                    status: e.status,
-                    amount: e.amount.toString(),
-                    receiptUrl: e.receiptUrl,
-                  }}
-                  properties={properties}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ExpensesTable
+          properties={properties}
+          expenses={expenses.map((e) => ({
+            id: e.id,
+            date: e.date.toISOString().slice(0, 10),
+            createdAt: e.createdAt.toISOString().slice(0, 10),
+            propertyId: e.propertyId,
+            propertyAddress: e.property.address,
+            description: e.description,
+            subcategory: e.subcategory,
+            status: e.status,
+            amount: e.amount.toString(),
+            receiptUrl: e.receiptUrl,
+          }))}
+        />
       </div>
     </>
   );

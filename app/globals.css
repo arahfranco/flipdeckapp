@@ -98,6 +98,16 @@
 /* Rent shown beside a Rented pill — reads as a companion to it, not a status. */
 .rent-tag{font-size:11px;font-weight:600;color:#1F5B60;white-space:nowrap;}
 
+/* Sortable table headers — a plain button that inherits the th's type styling,
+   with a caret that's faint until the column is the active sort. */
+.fd-t th .sortbtn{font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;
+  background:none;border:none;padding:0;cursor:pointer;display:inline-flex;align-items:center;gap:5px;}
+.fd-t th.num .sortbtn{flex-direction:row-reverse;}
+.fd-t th .sortbtn:hover{color:var(--ink);}
+.fd-t th .sortbtn .car{font-size:8px;opacity:.35;line-height:1;}
+.fd-t th .sortbtn.active .car{opacity:1;color:var(--rust);}
+.fd-t th .sortbtn:focus-visible{outline:2px solid var(--green);outline-offset:2px;}
+
 /* charts
    Series colours are their own tokens, not the UI palette: the UI greens and
    slates are deliberately desaturated, and as chart series they fail the
