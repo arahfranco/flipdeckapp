@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 interface Props {
   kind: "receipt" | "logo" | "property-photo";
   value?: string | null;
   onUploaded: (publicUrl: string) => void;
   label?: string;
+  /** Compact: just a small "Upload" button (a hidden file input), for tight cells. */
+  compact?: boolean;
 }
 
 // Serverless caps the request body at 4.5 MB, and a phone photo is routinely
@@ -43,9 +45,10 @@ async function downscale(file: File): Promise<Blob> {
   return blob && blob.size < file.size ? blob : file;
 }
 
-export function FileUploadField({ kind, value, onUploaded, label = "File" }: Props) {
+export function FileUploadField({ kind, value, onUploaded, label = "File", compact = false }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -76,6 +79,25 @@ export function FileUploadField({ kind, value, onUploaded, label = "File" }: Pro
       setBusy(false);
       e.target.value = "";
     }
+  }
+
+  if (compact) {
+    return (
+      <>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*,application/pdf"
+          onChange={handleChange}
+          disabled={busy}
+          style={{ display: "none" }}
+        />
+        <button type="button" className="fd-btn ghost sm" onClick={() => inputRef.current?.click()} disabled={busy}>
+          {busy ? "Uploading…" : "Upload"}
+        </button>
+        {error && <div className="err">{error}</div>}
+      </>
+    );
   }
 
   return (

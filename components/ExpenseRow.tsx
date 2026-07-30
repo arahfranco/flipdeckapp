@@ -58,6 +58,26 @@ export function ExpenseRow({ expense, properties }: Props) {
     }
   }
 
+  // Attach a receipt straight from the row, without entering edit mode.
+  async function attachReceipt(url: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/expenses/${expense.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ receiptUrl: url }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Could not attach receipt");
+      setReceiptUrl(url);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function remove() {
     setBusy(true);
     setError(null);
@@ -153,7 +173,7 @@ export function ExpenseRow({ expense, properties }: Props) {
             View ↗
           </a>
         ) : (
-          <span className="hint">—</span>
+          <FileUploadField kind="receipt" value={null} onUploaded={attachReceipt} compact />
         )}
       </td>
       <td>
