@@ -64,6 +64,13 @@ export default async function CompanyValuePage() {
           <div className="val">{money(nw.totalLiabilities)}</div>
           <div className="meta">
             {money(nw.outsideDebt)} outside · {money(nw.partnerLoans)} partner loans
+            {nw.totalAssets.greaterThan(0) && (
+              <>
+                <br />
+                {nw.totalLiabilities.dividedBy(nw.totalAssets).times(100).toDecimalPlaces(0).toString()}% of assets
+                (leverage)
+              </>
+            )}
           </div>
         </div>
         <div className="fd-stat" style={{ borderTopColor: "var(--green)" }}>
@@ -260,7 +267,9 @@ export default async function CompanyValuePage() {
               <tr>
                 <th>Partner</th>
                 <th className="num">Equity (net of draws)</th>
+                <th className="num">Stake</th>
                 <th className="num">Loans to company</th>
+                <th className="num">% of loans</th>
               </tr>
             </thead>
             <tbody>
@@ -273,18 +282,28 @@ export default async function CompanyValuePage() {
                 const loans = partner.contributions
                   .filter((c) => c.kind === ContribKind.LOAN)
                   .reduce((s, c) => s.plus(c.amount), new Prisma.Decimal(0));
+                // Share of the total. Guard divide-by-zero when no equity/loans
+                // exist yet — a percentage of nothing is "—", not 0%.
+                const stakePct = nw.partnerEquity.isZero()
+                  ? null
+                  : equity.dividedBy(nw.partnerEquity).times(100);
+                const loanPct = nw.partnerLoans.isZero() ? null : loans.dividedBy(nw.partnerLoans).times(100);
                 return (
                   <tr key={partner.id}>
                     <td>{partner.name}</td>
                     <td className={`num ${equity.greaterThanOrEqualTo(0) ? "pos" : "neg"}`}>{money2(equity)}</td>
+                    <td className="num">{stakePct === null ? "—" : `${stakePct.toDecimalPlaces(1)}%`}</td>
                     <td className="num">{money2(loans)}</td>
+                    <td className="num">{loanPct === null ? "—" : `${loanPct.toDecimalPlaces(1)}%`}</td>
                   </tr>
                 );
               })}
               <tr className="grp">
                 <td>Total</td>
                 <td className="num">{money2(nw.partnerEquity)}</td>
+                <td className="num">{nw.partnerEquity.isZero() ? "—" : "100%"}</td>
                 <td className="num">{money2(nw.partnerLoans)}</td>
+                <td className="num">{nw.partnerLoans.isZero() ? "—" : "100%"}</td>
               </tr>
             </tbody>
           </table>
