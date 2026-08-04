@@ -106,17 +106,17 @@ export function EditPropertyButton({ property }: Props) {
             <div className="fld-row">
               <div className="fld">
                 <label>Sqft</label>
-                <input type="number" name="sqft" min="0" defaultValue={property.sqft} required />
+                <input type="number" name="sqft" step="any" min="0" defaultValue={property.sqft} required />
               </div>
               <div className="fld">
                 <label>Lot Size</label>
-                <input type="number" name="lotSize" min="0" defaultValue={property.lotSize} required />
+                <input type="number" name="lotSize" step="any" min="0" defaultValue={property.lotSize} required />
               </div>
             </div>
             <div className="fld-row">
               <div className="fld">
                 <label>Stories</label>
-                <input type="number" name="stories" min="1" defaultValue={property.stories} required />
+                <input type="number" name="stories" step="0.5" min="1" defaultValue={property.stories} required />
               </div>
               <div className="fld">
                 <label>Status</label>

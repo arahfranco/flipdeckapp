@@ -9,8 +9,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const body = await req.json();
   const data: Record<string, unknown> = {};
-  for (const key of ["address", "mls", "type", "beds", "baths", "sqft", "lotSize", "stories", "photoUrl"]) {
+  for (const key of ["address", "mls", "type", "photoUrl"]) {
     if (key in body) data[key] = body[key];
+  }
+  // All Float columns — coerce so a stringified form value can't reach Prisma.
+  for (const key of ["beds", "baths", "sqft", "lotSize", "stories"]) {
+    if (key in body) data[key] = Number(body[key]);
   }
   // Balance-sheet fields: empty string means "clear it" (fall back to the
   // estimated sale price / no rent), so normalize those to null.

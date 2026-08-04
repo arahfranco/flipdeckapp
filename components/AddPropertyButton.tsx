@@ -90,17 +90,17 @@ export function AddPropertyButton() {
             <div className="fld-row">
               <div className="fld">
                 <label>Sqft</label>
-                <input type="number" name="sqft" min="0" required />
+                <input type="number" name="sqft" step="any" min="0" required />
               </div>
               <div className="fld">
                 <label>Lot Size</label>
-                <input type="number" name="lotSize" min="0" required />
+                <input type="number" name="lotSize" step="any" min="0" required />
               </div>
             </div>
             <div className="fld-row">
               <div className="fld">
                 <label>Stories</label>
-                <input type="number" name="stories" min="1" required defaultValue={1} />
+                <input type="number" name="stories" step="0.5" min="1" required defaultValue={1} />
               </div>
               <div className="fld">
                 <label>Status</label>

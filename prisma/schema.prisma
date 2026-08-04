@@ -103,9 +103,9 @@ model Property {
   type     String // Single Family, Condo, ...
   beds     Float
   baths    Float
-  sqft     Int
-  lotSize  Int
-  stories  Int
+  sqft     Float
+  lotSize  Float
+  stories  Float
   photoUrl String?
   status   Status  @default(SCOUTING)
 
