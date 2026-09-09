@@ -24,6 +24,8 @@ export function ImportExpensesButton({ properties, subcategories }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [imported, setImported] = useState(0);
   const [ignoreBlanks, setIgnoreBlanks] = useState(true);
+  const [aiText, setAiText] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
 
   function reset() {
     setStep("pick");
@@ -33,6 +35,8 @@ export function ImportExpensesButton({ properties, subcategories }: Props) {
     setError(null);
     setImported(0);
     setIgnoreBlanks(true);
+    setAiText("");
+    setAiBusy(false);
   }
   function close() {
     setOpen(false);
@@ -63,6 +67,30 @@ export function ImportExpensesButton({ properties, subcategories }: Props) {
   function toggleIgnoreBlanks(v: boolean) {
     setIgnoreBlanks(v);
     if (csvText) setResult(buildExpenseImport(csvText, subcategories, { ignoreBlanks: v }));
+  }
+
+  // Send pasted text to Claude, which returns the same template CSV; then drop
+  // straight into the normal preview so it's reviewed before anything is saved.
+  async function sortWithAi() {
+    if (!aiText.trim()) return;
+    setAiBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/expenses/ai-parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: aiText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "AI parsing failed");
+      setCsvText(data.csv);
+      setResult(buildExpenseImport(data.csv, subcategories, { ignoreBlanks }));
+      setStep("preview");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setAiBusy(false);
+    }
   }
 
   async function confirmImport() {
@@ -123,9 +151,32 @@ export function ImportExpensesButton({ properties, subcategories }: Props) {
                   ))}
                 </select>
                 <p className="hint">
-                  Every row in the file is imported against this property, or as general / overhead if none is chosen.
+                  Everything below is imported against this property, or as general / overhead if none is chosen.
                 </p>
               </div>
+
+              <div className="fld" style={{ marginTop: 4 }}>
+                <label>✨ Smart add — paste anything, let AI sort it</label>
+                <textarea
+                  value={aiText}
+                  onChange={(e) => setAiText(e.target.value)}
+                  rows={4}
+                  placeholder={"e.g.\n8/14 home depot lumber 340, plumbing parts 85 paid\nDumpster rental 500\nElectrician labor $1,200 - reimbursed"}
+                  style={{ width: "100%", resize: "vertical", fontFamily: "inherit" }}
+                />
+                <div style={{ marginTop: 8 }}>
+                  <button className="fd-btn sm" onClick={sortWithAi} type="button" disabled={aiBusy || !aiText.trim()}>
+                    {aiBusy ? "Sorting…" : "✨ Sort with AI"}
+                  </button>
+                  <span className="hint" style={{ marginLeft: 10 }}>
+                    You review everything before it’s saved.
+                  </span>
+                </div>
+                {error && step === "pick" && <p className="err" style={{ marginTop: 8 }}>{error}</p>}
+              </div>
+
+              <div className="fd-sep" style={{ margin: "16px 0", borderTop: "1px solid var(--border, #333)" }} />
+              <p className="hint" style={{ marginTop: 0 }}>Or import a CSV file:</p>
 
               <ol className="steps-list">
                 <li>
