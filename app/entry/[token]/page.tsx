@@ -19,7 +19,7 @@ export default async function EntryPage({ params }: { params: { token: string } 
   const subcategories = ALL_SUBS.filter((s) => s.cat !== "Selling Price").map((s) => s.sub);
 
   return (
-    <div style={{ maxWidth: 480, margin: "0 auto", padding: "24px 16px 64px" }}>
+    <div className="entry-page" style={{ maxWidth: 480, margin: "0 auto", padding: "24px 16px 64px" }}>
       <header style={{ marginBottom: 18 }}>
         <div className="fd-eyebrow">{company.appName}</div>
         <h2 style={{ margin: "2px 0 4px" }}>Log an expense</h2>

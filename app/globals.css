@@ -179,6 +179,14 @@
   color:var(--ink-2);font-weight:600;margin-bottom:5px;}
 .fld-row{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
 
+/* Public team entry page: larger, higher-contrast, colored field labels so the
+   field crew can read them at a glance on a phone. Scoped to .entry-page so the
+   rest of the app keeps its quiet micro-labels. */
+.fd .entry-page .fld > label{font-size:13px;letter-spacing:.02em;text-transform:none;
+  color:var(--green);font-weight:700;margin-bottom:6px;}
+.fd .entry-page .fld{margin-bottom:16px;}
+.fd .entry-page input,.fd .entry-page select{font-size:16px;padding:11px 12px;}
+
 /* login */
 .fd-login{min-height:100vh;display:grid;place-items:center;background:var(--slate);padding:20px;}
 .fd-login-card{background:var(--paper);border-radius:4px;padding:34px;width:100%;max-width:390px;
