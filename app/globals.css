@@ -23,6 +23,13 @@
 .fd input,.fd select,.fd textarea{font-family:inherit;font-size:13px;color:var(--ink);
   background:var(--card);border:1px solid var(--rule);border-radius:2px;padding:8px 10px;width:100%;}
 .fd input:focus,.fd select:focus,.fd textarea:focus{outline:2px solid var(--green);outline-offset:-1px;border-color:var(--green);}
+/* Date inputs on mobile (iOS Safari especially) render the value flush-right and
+   let it collide with the calendar icon and the box edge. Pin the value left,
+   give the picker icon its own space, and guarantee enough height so nothing
+   overlaps at any font size. */
+.fd input[type="date"]{min-height:42px;line-height:1.2;}
+.fd input[type="date"]::-webkit-date-and-time-value{text-align:left;margin:0;}
+.fd input[type="date"]::-webkit-calendar-picker-indicator{margin-left:8px;}
 .fd :focus-visible{outline:2px solid var(--green);outline-offset:2px;}
 /* :where() keeps this at zero specificity so any component class (.fd-btn,
    .fd-nav-item, .linkish, ...) always wins its own color — a plain ".fd a"
