@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { ExpenseStatus, Role } from "@prisma/client";
+import { ExpenseStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { ALL_SUBS, EXPENSE_STATUS_LABELS } from "@/lib/constants";
 import { resolveEntryCompany } from "@/lib/entryLink";
 import { sendMail } from "@/lib/mailer";
+import { env } from "@/lib/env";
 
 // Public, token-gated expense submission for the field team — NO login. The
 // unguessable token in the path is the only gate; the Owner can disable or
@@ -59,9 +60,9 @@ export async function POST(req: Request, { params }: { params: { token: string }
     data: { propertyId, date, amount, description, subcategory, status, receiptUrl },
   });
 
-  // Notify the Owner(s) — best-effort, never blocks or fails the submission.
+  // Notify — best-effort, never blocks or fails the submission.
   try {
-    await notifyOwners({ submittedBy, propertyLabel, amount, description, subcategory, status, date, receiptUrl, appName: company.appName });
+    await notifyAlert({ submittedBy, propertyLabel, amount, description, subcategory, status, date, receiptUrl, appName: company.appName });
   } catch (e) {
     console.error("Entry-link notification failed", e);
   }
@@ -69,7 +70,7 @@ export async function POST(req: Request, { params }: { params: { token: string }
   return NextResponse.json({ ok: true });
 }
 
-async function notifyOwners(x: {
+async function notifyAlert(x: {
   submittedBy: string;
   propertyLabel: string;
   amount: number;
@@ -80,9 +81,10 @@ async function notifyOwners(x: {
   receiptUrl: string | null;
   appName: string;
 }) {
-  const owners = await db.user.findMany({ where: { role: Role.OWNER }, select: { email: true } });
-  const to = owners.map((o) => o.email).filter((e): e is string => Boolean(e));
-  if (to.length === 0) return;
+  // A single alert recipient — defaults to the owner's address, overridable
+  // without a code change via ENTRY_ALERT_EMAIL.
+  const to = env("ENTRY_ALERT_EMAIL") || "arahfranco@gmail.com";
+  if (!to) return;
 
   const who = x.submittedBy || "Someone";
   const money = `$${x.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
