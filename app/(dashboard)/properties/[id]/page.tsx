@@ -267,7 +267,7 @@ export default async function PropertyDetailPage({
             <table className="fd-t">
               <thead>
                 <tr>
-                  <th>Date of Receipt</th>
+                  <th>Date of Transaction</th>
                   <th>Added</th>
                   <th>Description</th>
                   <th>Subcategory</th>

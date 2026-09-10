@@ -29,7 +29,7 @@ interface Column {
 }
 
 const COLUMNS: Column[] = [
-  { key: "date", label: "Date of Receipt", numeric: true },
+  { key: "date", label: "Date of Transaction", numeric: true },
   { key: "createdAt", label: "Added", numeric: true },
   { key: "propertyAddress", label: "Property" },
   { key: "description", label: "Description" },

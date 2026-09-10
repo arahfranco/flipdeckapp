@@ -103,8 +103,9 @@ export function PublicExpenseForm({ token, properties, subcategories }: Props) {
       </div>
 
       <div className="fld">
-        <label>Date</label>
+        <label>Date of transaction</label>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <p className="hint" style={{ marginTop: 4 }}>When the expense actually happened — change it if it wasn’t today.</p>
       </div>
 
       <div className="fld">

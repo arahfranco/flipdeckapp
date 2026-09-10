@@ -79,7 +79,7 @@ export function AddExpenseButton({ properties, lockedPropertyId }: Props) {
             )}
             <div className="fld-row">
               <div className="fld">
-                <label>Date</label>
+                <label>Date of transaction</label>
                 <input type="date" name="date" required defaultValue={new Date().toISOString().slice(0, 10)} />
               </div>
               <div className="fld">
