@@ -9,6 +9,9 @@ interface Props {
   label?: string;
   /** Compact: just a small "Upload" button (a hidden file input), for tight cells. */
   compact?: boolean;
+  /** Where to POST the file. Defaults to the authed route; the public team-entry
+   *  page passes its token-gated endpoint instead. */
+  uploadUrl?: string;
 }
 
 // Serverless caps the request body at 4.5 MB, and a phone photo is routinely
@@ -45,7 +48,7 @@ async function downscale(file: File): Promise<Blob> {
   return blob && blob.size < file.size ? blob : file;
 }
 
-export function FileUploadField({ kind, value, onUploaded, label = "File", compact = false }: Props) {
+export function FileUploadField({ kind, value, onUploaded, label = "File", compact = false, uploadUrl = "/api/upload" }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -65,7 +68,7 @@ export function FileUploadField({ kind, value, onUploaded, label = "File", compa
 
       // Same-origin — no CORS, and nothing between the browser and Cloudflare
       // to veto it. A failure here comes back as a real status and message.
-      const res = await fetch("/api/upload", { method: "POST", body: form });
+      const res = await fetch(uploadUrl, { method: "POST", body: form });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const detail = data.diagnostic ? ` [${Object.entries(data.diagnostic).map(([k, v]) => `${k}=${v}`).join(" ")}]` : "";

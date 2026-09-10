@@ -2,6 +2,7 @@ import { requireRole } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { Role } from "@prisma/client";
 import { CompanySettingsForm } from "@/components/CompanySettingsForm";
+import { EntryLinkManager } from "@/components/EntryLinkManager";
 
 export default async function SettingsPage() {
   const guard = await requireRole(Role.OWNER);
@@ -37,6 +38,18 @@ export default async function SettingsPage() {
               address: company?.address ?? null,
               logoUrl: company?.logoUrl ?? null,
             }}
+          />
+        </div>
+      </div>
+
+      <div className="fd-card" style={{ maxWidth: 480, marginTop: 22 }}>
+        <div className="fd-card-h">
+          <h3>Team expense-entry link</h3>
+        </div>
+        <div className="fd-card-b">
+          <EntryLinkManager
+            initialToken={company?.entryToken ?? null}
+            initialEnabled={company?.entryEnabled ?? false}
           />
         </div>
       </div>

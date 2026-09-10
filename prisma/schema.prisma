@@ -16,6 +16,11 @@ model Company {
   phone   String?
   address String?
   logoUrl String? // object storage URL (R2) — never base64
+  // Public, no-login expense-entry link for the field team. entryToken is the
+  // unguessable secret in the URL (/entry/<token>); entryEnabled is the kill
+  // switch. Rotating the token invalidates any previously shared link.
+  entryToken   String?  @unique
+  entryEnabled Boolean  @default(false)
 }
 
 model Account {
