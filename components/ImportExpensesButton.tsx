@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { money2 } from "@/lib/format";
 import { buildExpenseImport, expenseTemplateCsv, type ExpenseImportResult } from "@/lib/expenseImport";
+import { parseSmartText } from "@/lib/smartText";
 
 interface Props {
   properties: { id: string; address: string }[];
@@ -24,8 +25,7 @@ export function ImportExpensesButton({ properties, subcategories }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [imported, setImported] = useState(0);
   const [ignoreBlanks, setIgnoreBlanks] = useState(true);
-  const [aiText, setAiText] = useState("");
-  const [aiBusy, setAiBusy] = useState(false);
+  const [pasteText, setPasteText] = useState("");
 
   function reset() {
     setStep("pick");
@@ -35,8 +35,7 @@ export function ImportExpensesButton({ properties, subcategories }: Props) {
     setError(null);
     setImported(0);
     setIgnoreBlanks(true);
-    setAiText("");
-    setAiBusy(false);
+    setPasteText("");
   }
   function close() {
     setOpen(false);
@@ -69,28 +68,15 @@ export function ImportExpensesButton({ properties, subcategories }: Props) {
     if (csvText) setResult(buildExpenseImport(csvText, subcategories, { ignoreBlanks: v }));
   }
 
-  // Send pasted text to Claude, which returns the same template CSV; then drop
-  // straight into the normal preview so it's reviewed before anything is saved.
-  async function sortWithAi() {
-    if (!aiText.trim()) return;
-    setAiBusy(true);
+  // Turn pasted text into the template CSV locally (free, instant, no API), then
+  // drop into the normal preview so it's reviewed before anything is saved.
+  function sortPastedText() {
+    if (!pasteText.trim()) return;
     setError(null);
-    try {
-      const res = await fetch("/api/expenses/ai-parse", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: aiText }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "AI parsing failed");
-      setCsvText(data.csv);
-      setResult(buildExpenseImport(data.csv, subcategories, { ignoreBlanks }));
-      setStep("preview");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
-    } finally {
-      setAiBusy(false);
-    }
+    const csv = parseSmartText(pasteText, subcategories);
+    setCsvText(csv);
+    setResult(buildExpenseImport(csv, subcategories, { ignoreBlanks }));
+    setStep("preview");
   }
 
   async function confirmImport() {
@@ -156,23 +142,27 @@ export function ImportExpensesButton({ properties, subcategories }: Props) {
               </div>
 
               <div className="fld" style={{ marginTop: 4 }}>
-                <label>✨ Smart add — paste anything, let AI sort it</label>
+                <label>✨ Smart add — paste your expenses, one per line</label>
                 <textarea
-                  value={aiText}
-                  onChange={(e) => setAiText(e.target.value)}
+                  value={pasteText}
+                  onChange={(e) => setPasteText(e.target.value)}
                   rows={4}
-                  placeholder={"e.g.\n8/14 home depot lumber 340, plumbing parts 85 paid\nDumpster rental 500\nElectrician labor $1,200 - reimbursed"}
+                  placeholder={"e.g.\n8/14 home depot lumber $340 paid\nplumbing parts 85\nDumpster rental 500\nElectrician labor $1,200 reimbursed"}
                   style={{ width: "100%", resize: "vertical", fontFamily: "inherit" }}
                 />
                 <div style={{ marginTop: 8 }}>
-                  <button className="fd-btn sm" onClick={sortWithAi} type="button" disabled={aiBusy || !aiText.trim()}>
-                    {aiBusy ? "Sorting…" : "✨ Sort with AI"}
+                  <button className="fd-btn sm" onClick={sortPastedText} type="button" disabled={!pasteText.trim()}>
+                    ✨ Sort it out
                   </button>
                   <span className="hint" style={{ marginLeft: 10 }}>
-                    You review everything before it’s saved.
+                    We map each line to a category — you review it all before saving.
                   </span>
                 </div>
-                {error && step === "pick" && <p className="err" style={{ marginTop: 8 }}>{error}</p>}
+                {error && step === "pick" && (
+                  <p className="err" style={{ marginTop: 8 }}>
+                    {error}
+                  </p>
+                )}
               </div>
 
               <div className="fd-sep" style={{ margin: "16px 0", borderTop: "1px solid var(--border, #333)" }} />
