@@ -38,11 +38,14 @@ export function PublicExpenseForm({ token, properties, subcategories }: Props) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Could not submit");
-      // Keep property / date / category for fast repeat entry; clear the rest.
+      // Clear the whole form back to defaults so the next entry starts fresh.
+      setPropertyId("");
+      setDate(today());
       setAmount("");
       setDescription("");
-      setReceiptUrl(null);
+      setSubcategory(subcategories[0] ?? "");
       setStatus("PENDING");
+      setReceiptUrl(null);
       setUploadKey((k) => k + 1);
       setSavedCount((n) => n + 1);
     } catch (err) {
