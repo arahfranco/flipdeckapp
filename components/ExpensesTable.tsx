@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { ExpenseStatus } from "@prisma/client";
 import { ExpenseRow } from "./ExpenseRow";
 
-interface ExpenseVM {
+export interface ExpenseVM {
   id: string;
   date: string;
   createdAt: string;
